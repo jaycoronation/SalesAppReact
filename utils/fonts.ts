@@ -1,0 +1,16 @@
+export const Fonts = {
+  light: "Rubik-Light",
+  lightItalic: "Rubik-LightItalic",
+  regular: "Rubik-Regular",
+  italic: "Rubik-Italic",
+  medium: "Rubik-Medium",
+  mediumItalic: "Rubik-MediumItalic",
+  semiBold: "Rubik-SemiBold",
+  semiBoldItalic: "Rubik-SemiBoldItalic",
+  bold: "Rubik-Bold",
+  boldItalic: "Rubik-BoldItalic",
+  extraBold: "Rubik-ExtraBold",
+  extraBoldItalic: "Rubik-ExtraBoldItalic",
+  black: "Rubik-Black",
+  blackItalic: "Rubik-BlackItalic",
+};

@@ -1,0 +1,19 @@
+export const Colors = {
+  primary: "#000000",
+  secondary: "#10B981",
+  background: "#F9FAFB",
+  surface: "#FFFFFF",
+  text: "#111827",
+  placeholder: "#6B7280",
+  border: "#E5E7EB",
+  error: "#EF4444",
+  brandColor: '#000000',
+  black: '#000000',
+  white: '#FFFFFF',
+  lightBlue: '#edf0f9',
+  lightGreen: "#edf0ec",
+   lightCream: "#fdf3ea",
+   lightPink: "#fdeef1",
+   divider: "#7d7d7e",
+
+};
