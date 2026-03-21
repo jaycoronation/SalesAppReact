@@ -1,14 +1,18 @@
 // app/_layout.tsx
+import { Colors } from '@/utils/colors';
 import { SessionManager } from '@/utils/sessionManager';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts } from "expo-font";
+import { Redirect, Stack } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MD3LightTheme, PaperProvider } from "react-native-paper";
 
-import { Colors } from '@/utils/colors';
-import { Stack } from 'expo-router';
+
 
 export default function RootLayout() {
   const isLoggedIn = SessionManager.getIsLoggedIn();
-    const [fontsLoaded] = useFonts({
+
+  const [fontsLoaded] = useFonts({
     "Rubik-Light": require("../assets/fonts/Rubik-Light.ttf"),
     "Rubik-LightItalic": require("../assets/fonts/Rubik-LightItalic.ttf"),
     "Rubik-Regular": require("../assets/fonts/Rubik-Regular.ttf"),
@@ -24,6 +28,9 @@ export default function RootLayout() {
     "Rubik-Black": require("../assets/fonts/Rubik-Black.ttf"),
     "Rubik-BlackItalic": require("../assets/fonts/Rubik-BlackItalic.ttf"),
   });
+
+  if (!fontsLoaded) return null;
+
   const theme = {
     ...MD3LightTheme,
     colors: {
@@ -36,15 +43,21 @@ export default function RootLayout() {
     },
   };
 
+  // 🔥 Handle auth redirect here
+  if (isLoggedIn === null || !isLoggedIn) {
+    return <Redirect href="/login" />;
+  }
+
   return (
-    <PaperProvider theme={theme}>
-<Stack screenOptions={{ headerShown: false }}>
-      {!isLoggedIn ? (
-        <Stack.Screen name="login" />
-      ) : (
-        <Stack.Screen name="login" />
-      )}
-    </Stack>
-    </PaperProvider>
+
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <BottomSheetModalProvider>
+        <PaperProvider theme={theme}>
+          <Stack screenOptions={{ headerShown: true }} />
+        </PaperProvider>
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
   );
+
+
 }

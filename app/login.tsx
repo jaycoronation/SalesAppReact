@@ -25,7 +25,7 @@ export default function LoginScreen() {
 
   const handleLogin = () => {
     if (!username) {
-       ToastAndroid.show('Please enter email', ToastAndroid.SHORT);
+      ToastAndroid.show('Please enter email', ToastAndroid.SHORT);
       return;
     }
     else if (!isValidEmail(username)) {
@@ -33,35 +33,34 @@ export default function LoginScreen() {
       return;
     }
     else if (!password) {
-       ToastAndroid.show('Please enter password', ToastAndroid.SHORT);
+      ToastAndroid.show('Please enter password', ToastAndroid.SHORT);
       return;
     }
-    else
-    {
+    else {
       callAPI();
     }
-    
+
   };
 
-const callAPI = async () => {
-  try {
-    setIsLoading(true);
+  const callAPI = async () => {
+    try {
+      setIsLoading(true);
 
-    const res = await loginAPI(username, password);
+      const res = await loginAPI(username, password);
 
-    if (res.success && res.data.success === 1) {
-      await SessionManager.setSession(res.data);
-      router.push("/dashboard");
-    } else {
-      AppUtils.showToast(res.data?.message || "Login failed");
+      if (res.success && res.data.success === 1) {
+        await SessionManager.setSession(res.data);
+        router.push("/dashboard_new");
+      } else {
+        AppUtils.showToast(res.data?.message || "Login failed");
+      }
+
+    } catch (error) {
+      AppUtils.showToast("Something went wrong");
+    } finally {
+      setIsLoading(false);
     }
-
-  } catch (error) {
-    AppUtils.showToast("Something went wrong");
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   return (
     <View style={styles.container}>
@@ -71,60 +70,60 @@ const callAPI = async () => {
       >
         <View style={styles.content}>
           {/* Logo Section */}
-             <View style={styles.logoContainer}>
-                <Text style={styles.title}>Enter your detail to login</Text>
-             </View>
+          <View style={styles.logoContainer}>
+            <Text style={styles.title}>Enter your detail to login</Text>
+          </View>
 
 
           {/* Login Form */}
-           <TextInput
-                  style={styles.input}
-                  contentStyle={{ fontSize: 16,fontWeight: "600" }}
-                  label="Email"
-                  mode="outlined"
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
-                  textContentType="emailAddress"
-                  keyboardType="email-address"
-                  autoCorrect={false}
-                  editable={!isLoading}
-                  outlineStyle={{
-                    borderRadius: 12,
-                  }}
-                />
+          <TextInput
+            style={styles.input}
+            contentStyle={{ fontSize: 16, fontWeight: "600" }}
+            label="Email"
+            mode="outlined"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            textContentType="emailAddress"
+            keyboardType="email-address"
+            autoCorrect={false}
+            editable={!isLoading}
+            outlineStyle={{
+              borderRadius: 12,
+            }}
+          />
 
-           <TextInput
-                  style={styles.input}
-                  label="Password"
-                 mode="outlined" 
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={secureText} 
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!isLoading}
-                  onSubmitEditing={handleLogin}
-                  contentStyle={{ fontSize: 16,fontWeight: "600" }}
-                  outlineStyle={{
-                  borderRadius: 12,
-                }}
-                 right={
-                  <TextInput.Icon
-                    icon={secureText ? "eye-off" : "eye"}
-                    onPress={() => setSecureText(!secureText)}
-                  />
-                }
-                />
+          <TextInput
+            style={styles.input}
+            label="Password"
+            mode="outlined"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={secureText}
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isLoading}
+            onSubmitEditing={handleLogin}
+            contentStyle={{ fontSize: 16, fontWeight: "600" }}
+            outlineStyle={{
+              borderRadius: 12,
+            }}
+            right={
+              <TextInput.Icon
+                icon={secureText ? "eye-off" : "eye"}
+                onPress={() => setSecureText(!secureText)}
+              />
+            }
+          />
 
-           <CustomButton
-               style={{ marginTop: 22 }}
-              title="Submit"
-              onPress={handleLogin}
-              loading={isLoading}
-            />
+          <CustomButton
+            style={{ marginTop: 22 }}
+            title="Submit"
+            onPress={handleLogin}
+            loading={isLoading}
+          />
           {/* Footer */}
-          
+
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -208,7 +207,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     borderRadius: 12,
-    
+
   },
   loginButton: {
     backgroundColor: "#DC2626",

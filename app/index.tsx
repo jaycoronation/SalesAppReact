@@ -1,0 +1,26 @@
+import { useEffect, useState } from 'react';
+import { SessionManager } from '@/utils/sessionManager';
+import { Redirect } from 'expo-router';
+import { View, ActivityIndicator } from 'react-native';
+
+export default function Index() {
+    const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        const checkSession = async () => {
+            const status = await SessionManager.getIsLoggedIn();
+            setIsLoggedIn(status);
+        };
+        checkSession();
+    }, []);
+
+    if (isLoggedIn === null) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" />
+            </View>
+        );
+    }
+
+    return isLoggedIn ? <Redirect href="/dashboard_new" /> : <Redirect href="/login" />;
+}
