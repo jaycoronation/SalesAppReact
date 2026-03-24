@@ -1,3 +1,4 @@
+import { Colors } from '@/utils/colors'
 import React from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
@@ -125,14 +126,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: Colors.brandColorLight,
     borderWidth: 0.5,
-    borderColor: '#BFDBFE',
+    borderColor: Colors.brandColor,
     flexShrink: 0,
   },
   actionText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#2563EB',
+    color: Colors.brandColor,
   },
 })

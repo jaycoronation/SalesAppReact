@@ -23,7 +23,7 @@ export default class PurchaseDetail extends Model {
 
     @field('fiscal_year') fiscalYear!: string
     @field('txn_date') txnDate!: string    // "27 Feb, 2026" — string from API
-    @field('due_date') dueDate!: number    // unix timestamp string → stored as number
+    @field('due_date') dueDate!: string    // unix timestamp string → stored as number
     @field('voucher_no') voucherNo!: string
     @field('voucher_type') voucherType!: string
     @field('particulars') particulars!: string

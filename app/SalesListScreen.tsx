@@ -1,6 +1,7 @@
 import { database } from '@/Database'
 import SaleEntry from '@/Database/models/SalesEntry'
 import { syncSales } from '@/Services/salessync'
+import { Colors } from '@/utils/colors'
 import { Q } from '@nozbe/watermelondb'
 import { Stack, router } from 'expo-router'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -254,7 +255,7 @@ export default function SalesListScreen() {
     return (
       <View style={styles.emptyContainer}>
         <Stack.Screen options={{ title: 'Sales' }} />
-        <ActivityIndicator size="large" color="#2563EB" />
+        <ActivityIndicator size="large" color={Colors.brandColor} />
         <Text style={styles.emptyText}>Loading sales…</Text>
         <Text style={styles.emptyHint}>Fetching from local database</Text>
       </View>
@@ -294,7 +295,7 @@ export default function SalesListScreen() {
           </View>
           {syncing && !refreshing && (
             <View style={styles.syncBadge}>
-              <ActivityIndicator size="small" color="#2563EB" style={{ marginRight: 6 }} />
+              <ActivityIndicator size="small" color={Colors.brandColor} style={{ marginRight: 6 }} />
               <Text style={styles.syncText}>Syncing…</Text>
             </View>
           )}
@@ -352,7 +353,7 @@ export default function SalesListScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#2563EB"
+            tintColor={Colors.brandColor}
           />
         }
         ListEmptyComponent={
@@ -395,14 +396,14 @@ const styles = StyleSheet.create({
   syncBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: Colors.brandColorLight,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 0.5,
-    borderColor: '#BFDBFE',
+    borderColor: Colors.brandColor,
   },
-  syncText: { fontSize: 12, color: '#2563EB', fontWeight: '500' },
+  syncText: { fontSize: 12, color: Colors.brandColor, fontWeight: '500' },
 
   // Search
   searchWrap: {
@@ -433,7 +434,7 @@ const styles = StyleSheet.create({
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6', gap: 10 },
   emptyText: { fontSize: 16, fontWeight: '600', color: '#374151' },
   emptyHint: { fontSize: 13, color: '#9CA3AF' },
-  retryBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#2563EB', borderRadius: 8 },
+  retryBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: Colors.brandColor, borderRadius: 8 },
   retryText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   noResults: { alignItems: 'center', paddingTop: 60, gap: 8 },
   noResultsText: { fontSize: 15, fontWeight: '600', color: '#374151' },
@@ -458,7 +459,7 @@ const cardStyles = StyleSheet.create({
   partyName: { fontSize: 14, fontWeight: '600', color: '#111827', flex: 1, marginRight: 8 },
   grossTotal: { fontSize: 15, fontWeight: '700', color: '#059669', flexShrink: 0 },
   midRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
-  voucherNo: { fontSize: 12, color: '#2563EB', fontWeight: '500' },
+  voucherNo: { fontSize: 12, color: Colors.brandColor, fontWeight: '500' },
   txnDate: { fontSize: 12, color: '#6B7280' },
   gstin: { fontSize: 11, color: '#9CA3AF', marginBottom: 10 },
   bottomRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

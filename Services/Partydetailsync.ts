@@ -1,10 +1,10 @@
 import { database } from '@/Database'
 import PartyDetail from '@/Database/models/Partydetails'
+import { ApiEndPoints } from "@/network/ApiEndPoint"
 import { SessionManager } from '@/utils/sessionManager'
 import { Q } from '@nozbe/watermelondb'
 import NetInfo from '@react-native-community/netinfo'
 
-const BASE_URL = 'http://192.168.29.245:5000'
 
 // ─── API Types ────────────────────────────────────────────────────────────────
 
@@ -125,7 +125,7 @@ export async function syncPartyDetail(partyId: string): Promise<void> {
 
     try {
         const res = await fetch(
-            `${BASE_URL}/api/party/detail?party_id=${partyId}&invoice_details=1`,
+            `${ApiEndPoints.BASE_URL}party/detail?party_id=${partyId}&invoice_details=1`,
             { method: 'GET', headers: await authHeaders() },
         )
 

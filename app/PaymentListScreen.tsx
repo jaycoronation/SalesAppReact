@@ -1,6 +1,7 @@
 import { database } from '@/Database'
 import PaymentEntry from '@/Database/models/PaymentEntry'
 import { syncPayments } from '@/Services/paymentSync'
+import { Colors } from '@/utils/colors'
 import { Q } from '@nozbe/watermelondb'
 import { Stack } from 'expo-router'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
@@ -16,12 +17,12 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MONTH = 2
-const YEAR  = 2026
+const YEAR = 2026
 
 const MONTH_NAMES: Record<number, string> = {
-  1: 'January',   2: 'February',  3: 'March',     4: 'April',
-  5: 'May',       6: 'June',      7: 'July',       8: 'August',
-  9: 'September', 10: 'October',  11: 'November', 12: 'December',
+  1: 'January', 2: 'February', 3: 'March', 4: 'April',
+  5: 'May', 6: 'June', 7: 'July', 8: 'August',
+  9: 'September', 10: 'October', 11: 'November', 12: 'December',
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -41,12 +42,12 @@ function getModeLabel(mode: string): string {
 // ─── Payment Card ─────────────────────────────────────────────────────────────
 
 function PaymentCard({ item }: { item: PaymentEntry }) {
-  const isDebit    = item.debitAmount > 0
-  const amount     = isDebit ? item.debitAmount : item.creditAmount
-  const modeLabel  = getModeLabel(item.paymentMode)
-  const hasParty   = !!item.partyName
-  const hasGstin   = !!item.partyGstin
-  const hasVchNo   = !!item.vchNo
+  const isDebit = item.debitAmount > 0
+  const amount = isDebit ? item.debitAmount : item.creditAmount
+  const modeLabel = getModeLabel(item.paymentMode)
+  const hasParty = !!item.partyName
+  const hasGstin = !!item.partyGstin
+  const hasVchNo = !!item.vchNo
 
   return (
     <View style={cardStyles.card}>
@@ -112,13 +113,13 @@ function PaymentCard({ item }: { item: PaymentEntry }) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function PaymentListScreen() {
-  const [entries, setEntries]         = useState<PaymentEntry[]>([])
-  const [totalRecords, setTotal]      = useState(0)
-  const [syncing, setSyncing]         = useState(false)
-  const [refreshing, setRefreshing]   = useState(false)
+  const [entries, setEntries] = useState<PaymentEntry[]>([])
+  const [totalRecords, setTotal] = useState(0)
+  const [syncing, setSyncing] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
-  const pageRef                       = useRef(1)
-  const allLoadedRef                  = useRef(false)
+  const pageRef = useRef(1)
+  const allLoadedRef = useRef(false)
 
   // ── Load a page from local DB ──────────────────────────────────────────────
   const loadPage = useCallback(async (page: number, replace: boolean) => {
@@ -185,7 +186,7 @@ export default function PaymentListScreen() {
     return (
       <View style={styles.emptyContainer}>
         <Stack.Screen options={{ title: 'Payments' }} />
-        <ActivityIndicator size="large" color="#2563EB" />
+        <ActivityIndicator size="large" color={Colors.brandColor} />
         <Text style={styles.emptyText}>Loading payments…</Text>
         <Text style={styles.emptyHint}>Fetching from local database</Text>
       </View>
@@ -220,7 +221,7 @@ export default function PaymentListScreen() {
         </View>
         {syncing && !refreshing && (
           <View style={styles.syncBadge}>
-            <ActivityIndicator size="small" color="#2563EB" style={{ marginRight: 6 }} />
+            <ActivityIndicator size="small" color={Colors.brandColor} style={{ marginRight: 6 }} />
             <Text style={styles.syncText}>Syncing…</Text>
           </View>
         )}
@@ -238,7 +239,7 @@ export default function PaymentListScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#2563EB"
+            tintColor={Colors.brandColor}
           />
         }
         ListFooterComponent={
@@ -257,7 +258,7 @@ export default function PaymentListScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container:      { flex: 1, backgroundColor: '#F3F4F6' },
+  container: { flex: 1, backgroundColor: '#F3F4F6' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -267,30 +268,30 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     backgroundColor: '#F3F4F6',
   },
-  headerTitle:    { fontSize: 22, fontWeight: '700', color: '#111827', letterSpacing: -0.3 },
-  headerSub:      { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: '#111827', letterSpacing: -0.3 },
+  headerSub: { fontSize: 13, color: '#6B7280', marginTop: 2 },
   syncBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: Colors.brandColorLight,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 0.5,
-    borderColor: '#BFDBFE',
+    borderColor: Colors.brandColor,
   },
-  syncText:       { fontSize: 12, color: '#2563EB', fontWeight: '500' },
-  listContent:    { paddingHorizontal: 16, paddingBottom: 16 },
-  footerLoader:   { paddingVertical: 20, alignItems: 'center' },
-  footer:         { height: 32 },
+  syncText: { fontSize: 12, color: Colors.brandColor, fontWeight: '500' },
+  listContent: { paddingHorizontal: 16, paddingBottom: 16 },
+  footerLoader: { paddingVertical: 20, alignItems: 'center' },
+  footer: { height: 32 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6', gap: 10 },
-  emptyText:      { fontSize: 16, fontWeight: '600', color: '#374151' },
-  emptyHint:      { fontSize: 13, color: '#9CA3AF' },
+  emptyText: { fontSize: 16, fontWeight: '600', color: '#374151' },
+  emptyHint: { fontSize: 13, color: '#9CA3AF' },
   retryBtn: {
     marginTop: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: '#2563EB',
+    backgroundColor: Colors.brandColor,
     borderRadius: 8,
   },
   retryText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
@@ -323,7 +324,7 @@ const cardStyles = StyleSheet.create({
     fontWeight: '700',
     flexShrink: 0,
   },
-  debit:  { color: '#DC2626' },   // red for money going out
+  debit: { color: '#DC2626' },   // red for money going out
   credit: { color: '#059669' },   // green for money coming in
   partyName: {
     fontSize: 12,
@@ -335,10 +336,10 @@ const cardStyles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 3,
   },
-  vchNo:      { fontSize: 12, color: '#2563EB', fontWeight: '500' },
+  vchNo: { fontSize: 12, color: Colors.brandColor, fontWeight: '500' },
   vchNoEmpty: { fontSize: 12, color: '#D1D5DB', fontStyle: 'italic' },
-  txnDate:    { fontSize: 12, color: '#6B7280' },
-  gstin:      { fontSize: 11, color: '#9CA3AF', marginBottom: 10 },
+  txnDate: { fontSize: 12, color: '#6B7280' },
+  gstin: { fontSize: 11, color: '#9CA3AF', marginBottom: 10 },
   bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -352,9 +353,9 @@ const cardStyles = StyleSheet.create({
     paddingVertical: 3,
     borderWidth: 0.5,
   },
-  modeBadgeBank: { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' },
+  modeBadgeBank: { backgroundColor: Colors.brandColorLight, borderColor: Colors.brandColor },
   modeBadgeCash: { backgroundColor: '#FEF9C3', borderColor: '#FDE68A' },
-  modeText:     { fontSize: 11, fontWeight: '500' },
+  modeText: { fontSize: 11, fontWeight: '500' },
   modeTextBank: { color: '#1D4ED8' },
   modeTextCash: { color: '#92400E' },
   bankAccount: {
@@ -370,9 +371,9 @@ const cardStyles = StyleSheet.create({
     borderWidth: 0.5,
     marginLeft: 'auto',
   },
-  typeBadgeDebit:  { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
+  typeBadgeDebit: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
   typeBadgeCredit: { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' },
-  typeText:        { fontSize: 11, fontWeight: '500' },
-  typeTextDebit:   { color: '#991B1B' },
-  typeTextCredit:  { color: '#065F46' },
+  typeText: { fontSize: 11, fontWeight: '500' },
+  typeTextDebit: { color: '#991B1B' },
+  typeTextCredit: { color: '#065F46' },
 })

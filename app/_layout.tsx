@@ -35,7 +35,7 @@ export default function RootLayout() {
     ...MD3LightTheme,
     colors: {
       ...MD3LightTheme.colors,
-      primary: Colors.primary,
+      primary: Colors.brandColor,
       secondary: Colors.secondary,
       background: Colors.background,
       surface: Colors.surface,
@@ -53,7 +53,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
         <PaperProvider theme={theme}>
-          <Stack screenOptions={{ headerShown: true }} />
+          <Stack screenOptions={{ headerShown: true, headerBackTitle: '' }} />
         </PaperProvider>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>

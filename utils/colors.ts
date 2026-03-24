@@ -7,13 +7,13 @@ export const Colors = {
   placeholder: "#6B7280",
   border: "#E5E7EB",
   error: "#EF4444",
-  brandColor: '#000000',
+  brandColor: '#e2101f',
+  brandColorLight: '#ffced2',
   black: '#000000',
   white: '#FFFFFF',
   lightBlue: '#edf0f9',
   lightGreen: "#edf0ec",
-   lightCream: "#fdf3ea",
-   lightPink: "#fdeef1",
-   divider: "#7d7d7e",
-
+  lightCream: "#fdf3ea",
+  lightPink: "#fdeef1",
+  divider: "#7d7d7e",
 };

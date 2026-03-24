@@ -1,10 +1,10 @@
 import { database } from '@/Database'
 import SaleEntry from '@/Database/models/SalesEntry'
+import { ApiEndPoints } from "@/network/ApiEndPoint"
 import { SessionManager } from '@/utils/sessionManager'
 import { Q } from '@nozbe/watermelondb'
 import NetInfo from '@react-native-community/netinfo'
 
-const BASE_URL = 'http://192.168.29.245:5000'
 
 // ─── API Types ────────────────────────────────────────────────────────────────
 
@@ -121,7 +121,7 @@ async function syncSalePage(
     page: number,
 ): Promise<{ totalRecords: number }> {
     const res = await fetch(
-        `${BASE_URL}/api/register/sales_list?month=${month}&year=${year}`,
+        `${ApiEndPoints.BASE_URL}register/sales_list?month=${month}&year=${year}`,
         { method: 'GET', headers: await authHeaders() },
     )
 

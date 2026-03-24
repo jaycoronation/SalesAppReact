@@ -39,6 +39,48 @@ export default appSchema({
       ],
     }),
 
+    // ── NEW: rich dashboard overview v2 ──────────────────────────────────────
+    tableSchema({
+      name: 'dashboard_overview_v2',
+      columns: [
+        { name: 'month', type: 'number' },
+        { name: 'year', type: 'number' },
+        { name: 'kpi_json', type: 'string' },
+        { name: 'net_position_json', type: 'string' },
+        { name: 'receivables_aging_json', type: 'string' },
+        { name: 'payables_aging_json', type: 'string' },
+        { name: 'upcoming_payments_json', type: 'string' },
+        { name: 'recent_invoices_json', type: 'string' },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+      ],
+    }),
+
+    // ── NEW: upcoming payments (separate API) ─────────────────────────────────
+    tableSchema({
+      name: 'upcoming_payments',
+      columns: [
+        { name: 'purchase_id', type: 'string' },
+        { name: 'party_id', type: 'string' },
+        { name: 'party_name', type: 'string' },
+        { name: 'gstin_uin', type: 'string' },
+        { name: 'voucher_no', type: 'string' },
+        { name: 'txn_date', type: 'string' },
+        { name: 'due_date', type: 'string' },
+        { name: 'outstanding', type: 'number' },
+        { name: 'payment_status', type: 'string' },
+        { name: 'is_overdue', type: 'number' },
+        { name: 'days_overdue', type: 'number' },
+        { name: 'days_until', type: 'number' },
+        { name: 'urgency', type: 'string' },
+        { name: 'fiscal_year', type: 'string' },
+        { name: 'sync_type', type: 'string' },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+      ],
+    }),
+
+
     // ── Top customers & vendors (party_type distinguishes them) ──────────
     tableSchema({
       name: "top_parties",
@@ -134,7 +176,7 @@ export default appSchema({
         { name: 'gstin_uin', type: 'string' },
         { name: 'fiscal_year', type: 'string' },
         { name: 'txn_date', type: 'string' },
-        { name: 'due_date', type: 'number' },
+        { name: 'due_date', type: 'string' },
         { name: 'voucher_no', type: 'string' },
         { name: 'voucher_type', type: 'string' },
         { name: 'particulars', type: 'string' },

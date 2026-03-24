@@ -5,6 +5,7 @@ import { SessionManager } from '@/utils/sessionManager'
 import { Q } from '@nozbe/watermelondb'
 import NetInfo from '@react-native-community/netinfo'
 import DashboardOverview from '../Database/DashboardOverview'
+import { ApiEndPoints } from '../network/ApiEndPoint'
 import {
   DashboardApiData,
   DashboardApiResponse,
@@ -12,7 +13,6 @@ import {
   TopPartiesApiResponse,
 } from './types'
 
-const BASE_URL = 'http://192.168.29.245:5000' // ← replace with your base URL
 
 // ─── Shared Auth Header ───────────────────────────────────────────────────────
 
@@ -70,7 +70,7 @@ export async function syncDashboard(month: number, year: number): Promise<void> 
 
   try {
     const res = await fetch(
-      `${BASE_URL}/api/register/dashboard_overview?month=${month}&year=${year}`,
+      `${ApiEndPoints.BASE_URL}register/dashboard_overview?month=${month}&year=${year}`,
       { method: 'GET', headers: await authHeaders() },
     )
 
@@ -108,7 +108,7 @@ export async function syncTopParties(month: number, year: number): Promise<void>
 
   try {
     const res = await fetch(
-      `${BASE_URL}/api/register/dashboard_top-parties?month=${month}&year=${year}`,
+      `${ApiEndPoints.BASE_URL}register/dashboard_top-parties?month=${month}&year=${year}`,
       { method: 'GET', headers: await authHeaders() },
     )
 
@@ -171,7 +171,7 @@ export async function syncMonthlyTrends(fiscalYear: string): Promise<void> {
 
   try {
     const res = await fetch(
-      `${BASE_URL}/api/register/dashboard_monthly-trend?fiscal_year=${fiscalYear}`,
+      `${ApiEndPoints.BASE_URL}register/dashboard_monthly-trend?fiscal_year=${fiscalYear}`,
       { method: 'GET', headers: await authHeaders() },
     )
 

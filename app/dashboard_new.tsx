@@ -1,30 +1,29 @@
-import { database } from '@/Database'
-import DashboardOverview from '@/Database/DashboardOverview'
-import MonthlyTrend from '@/Database/models/MonthlyTrend'
-import TopParty from '@/Database/models/TopParty'
-import { syncDashboardData } from '@/Services/dashboardSync'
-import { getCurrentFinancialYear } from '@/utils/AppUtils'
-import { MaterialIcons } from '@expo/vector-icons'
-import { Q } from '@nozbe/watermelondb'
-
-import { LogoutSheetRef } from '@/utils/LogoutSheet'
-import { Stack, router, useNavigation } from 'expo-router'
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import DashboardOverviewV2, {
+  AgingBucket,
+  RecentInvoiceItem,
+  UpcomingPaymentItem,
+} from '@/Database/models/dashboardoverview';
+import {
+  loadDashboardV2,
+  syncDashboardV2,
+  syncUpcomingPayments,
+} from '@/Services/DashboardV2Sync';
+import { Colors } from '@/utils/colors';
+import { SessionManager } from '@/utils/sessionManager';
+import { Ionicons } from '@expo/vector-icons';
+import { router, Stack } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
-} from 'react-native'
-import { Row } from '../components/Row'
-import { Section } from '../components/Section'
-import { StatCard } from '../components/StatCard'
-
-
-
+  View,
+} from 'react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MONTH = 2
@@ -38,180 +37,191 @@ const MONTH_NAMES: Record<number, string> = {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function formatAmount(value: number): string {
-  if (value >= 1e7) return `₹ ${(value / 1e7).toFixed(2)} Cr`
-  if (value >= 1e5) return `₹ ${(value / 1e5).toFixed(1)} L`
-  return `₹ ${value.toLocaleString('en-IN')}`
+
+function fmt(val: string | number | null | undefined): string {
+  const n = typeof val === 'string' ? parseFloat(val) : (val ?? 0)
+  if (!n || isNaN(n)) return '₹0'
+  const abs = Math.abs(n)
+  const sign = n < 0 ? '−' : ''
+  if (abs >= 1e7) return `${sign}₹${(abs / 1e7).toFixed(2)} Cr`
+  if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(1)} L`
+  return `${sign}₹${abs.toLocaleString('en-IN')}`
+}
+
+function urgencyStyle(urgency: string) {
+  switch (urgency) {
+    case 'overdue': return { dot: '#DC2626', bg: '#FEF2F2', border: '#FECACA' }
+    case 'critical': return { dot: '#EA580C', bg: '#FFF7ED', border: '#FDBA74' }
+    case 'urgent': return { dot: '#D97706', bg: '#FFFBEB', border: '#FDE68A' }
+    default: return { dot: Colors.brandColor, bg: Colors.brandColorLight, border: Colors.brandColor }
+  }
+}
+
+function statusBadgeStyle(status: string) {
+  switch (status?.toLowerCase()) {
+    case 'paid': return { bg: '#D1FAE5', text: '#065F46', border: '#6EE7B7' }
+    case 'partial': return { bg: '#FEF9C3', text: '#92400E', border: '#FDE68A' }
+    default: return { bg: '#FEE2E2', text: '#991B1B', border: '#FECACA' }
+  }
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function PartyRow({
-  rank,
-  name,
-  gstin,
-  amount,
-  count,
-  label,
-  last = false,
-}: {
-  rank: number
-  name: string
-  gstin: string
-  amount: number
-  count: number
-  label: string
-  last?: boolean
-}) {
+function SectionHeader({
+  title, actionLabel, onAction,
+}: { title: string; actionLabel?: string; onAction?: () => void }) {
   return (
-    <View style={[partyStyles.row, last && partyStyles.lastRow]}>
-      <View style={partyStyles.rankBadge}>
-        <Text style={partyStyles.rankText}>{rank}</Text>
+    <View style={s.sectionHeader}>
+      <Text style={s.sectionTitle}>{title}</Text>
+      {actionLabel && (
+        <TouchableOpacity onPress={onAction} style={s.sectionAction}>
+          <Text style={s.sectionActionText}>{actionLabel}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  )
+}
+
+function KpiCard({
+  label, value, sub, accent, onAction
+}: { label: string; value: string; sub?: string; accent?: 'green' | 'red' | 'amber' | 'blue', onAction?: () => void }) {
+  const colors = {
+    green: '#059669', red: '#DC2626', amber: '#D97706', blue: Colors.brandColor,
+  }
+  return (
+
+    <View style={s.kpiCard}>
+      <TouchableOpacity onPress={onAction}>
+        <Text style={s.kpiLabel}>{label}</Text>
+        <Text style={[s.kpiValue, accent && { color: colors[accent] }]}>{value}</Text>
+        {sub && <Text style={s.kpiSub}>{sub}</Text>}
+      </TouchableOpacity>
+    </View>
+
+  )
+}
+
+function AgingBar({ buckets }: { buckets: Record<string, AgingBucket> }) {
+  const order = ['paid', 'd0_7', 'd7_15', 'd15_30', 'over_30']
+  const colors = ['#059669', '#2563EB', '#D97706', '#EA580C', '#DC2626']
+  const total = order.reduce((s, k) => s + parseFloat(buckets[k]?.amount || '0'), 0)
+  if (!total) return null
+
+  return (
+    <View style={s.agingBarWrap}>
+      <View style={s.agingBar}>
+        {order.map((k, i) => {
+          const pct = (parseFloat(buckets[k]?.amount || '0') / total) * 100
+          if (pct < 1) return null
+          return (
+            <View
+              key={k}
+              style={[s.agingSegment, { width: `${pct}%` as any, backgroundColor: colors[i] }]}
+            />
+          )
+        })}
       </View>
-      <View style={partyStyles.info}>
-        <Text style={partyStyles.name} numberOfLines={1}>{name}</Text>
-        <Text style={partyStyles.gstin}>{gstin}</Text>
-      </View>
-      <View style={partyStyles.right}>
-        <Text style={partyStyles.amount}>{formatAmount(amount)}</Text>
-        <Text style={partyStyles.count}>{count} {label}</Text>
+      <View style={s.agingLegend}>
+        {order.map((k, i) => {
+          const bucket = buckets[k]
+          if (!bucket || parseFloat(bucket.amount) === 0) return null
+          return (
+            <View key={k} style={s.agingLegendItem}>
+              <View style={[s.agingDot, { backgroundColor: colors[i] }]} />
+              <Text style={s.agingLegendLabel}>{bucket.label}</Text>
+              <Text style={s.agingLegendVal}>{fmt(bucket.amount)}</Text>
+            </View>
+          )
+        })}
       </View>
     </View>
   )
 }
 
-function TrendRow({
-  label,
-  amount,
-  count,
-  countLabel,
-  color,
-  last = false,
-}: {
-  label: string
-  amount: number
-  count: number
-  countLabel: string
-  color: string
-  last?: boolean
-}) {
+function UpcomingRow({ item }: { item: UpcomingPaymentItem }) {
+  const ug = urgencyStyle(item.urgency)
+  const daysLabel = item.urgency === 'overdue'
+    ? `${item.days_overdue}d overdue`
+    : item.days_until === '0' ? 'Due today' : `${item.days_until}d left`
+
   return (
-    <View style={[trendStyles.row, last && trendStyles.lastRow]}>
-      <View style={[trendStyles.dot, { backgroundColor: color }]} />
-      <Text style={trendStyles.label}>{label}</Text>
-      <View style={trendStyles.right}>
-        <Text style={trendStyles.amount}>{formatAmount(amount)}</Text>
-        <Text style={trendStyles.count}>{count} {countLabel}</Text>
+    <TouchableOpacity
+      style={[s.upcomingRow, { backgroundColor: ug.bg, borderColor: ug.border }]}
+      activeOpacity={0.7}
+      onPress={() =>
+        router.push({
+          pathname: '/PurchaseDetailScreen',
+          params: { purchaseId: item.purchase_id },
+        })
+      }
+    >
+      <View style={[s.upcomingDot, { backgroundColor: ug.dot }]} />
+      <View style={s.upcomingLeft}>
+        <Text style={s.upcomingParty} numberOfLines={1}>{item.party_name}</Text>
+        <Text style={s.upcomingVoucher}>{item.voucher_no} · {item.due_date}</Text>
       </View>
-    </View>
+      <View style={s.upcomingRight}>
+        <Text style={s.upcomingAmount}>{fmt(item.outstanding)}</Text>
+        <Text style={[s.upcomingDaysLabel, { color: ug.dot }]}>{daysLabel}</Text>
+      </View>
+    </TouchableOpacity>
+  )
+}
+
+function RecentInvoiceRow({ item }: { item: RecentInvoiceItem }) {
+  const bs = statusBadgeStyle(item.payment_status)
+  return (
+    <TouchableOpacity
+      style={s.invoiceRow}
+      activeOpacity={0.7}
+      onPress={() =>
+        router.push({
+          pathname: '/SaleDetailScreen',
+          params: { saleId: item.sale_id },
+        })
+      }
+    >
+      <View style={s.invoiceLeft}>
+        <Text style={s.invoiceParty} numberOfLines={1}>{item.party_name}</Text>
+        <Text style={s.invoiceVoucher}>{item.voucher_no} · {item.txn_date}</Text>
+      </View>
+      <View style={s.invoiceRight}>
+        <Text style={s.invoiceAmount}>{fmt(item.gross_total)}</Text>
+        <View style={[s.invoiceBadge, { backgroundColor: bs.bg, borderColor: bs.border }]}>
+          <Text style={[s.invoiceBadgeText, { color: bs.text }]}>{item.status_display}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
   )
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
+
 export default function DashboardScreen() {
-  const [data, setData] = useState<DashboardOverview | null>(null)
-  const [customers, setCustomers] = useState<TopParty[]>([])
-  const [vendors, setVendors] = useState<TopParty[]>([])
-  const [salesTrends, setSalesTrends] = useState<MonthlyTrend[]>([])
-  const [purchTrends, setPurchTrends] = useState<MonthlyTrend[]>([])
+  const [data, setData] = useState<DashboardOverviewV2 | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const sheetRef = useRef<LogoutSheetRef>(null);
+  const [logoutVisible, setLogoutVisible] = useState(false);
 
-
-  const navigation = useNavigation();
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity
-          onPress={() => sheetRef.current?.present()} // ✅ IMPORTANT
-          style={{ marginRight: 15 }}
-        >
-          <MaterialIcons name="logout" size={24} />
-        </TouchableOpacity>
-      ),
-    });
-  }, []);
-
-  // ── Load all local data ──────────────────────────────────────────────────
   const loadLocal = useCallback(async () => {
-    // Overview
-    const overviewRecords = await database
-      .get<DashboardOverview>('dashboard_overview')
-      .query(Q.where('month', MONTH), Q.where('year', YEAR))
-      .fetch()
-    if (overviewRecords.length > 0) setData(overviewRecords[0])
-
-    // Top customers — sorted by rank
-    const customerRecords = await database
-      .get<TopParty>('top_parties')
-      .query(
-        Q.where('party_type', 'customer'),
-        Q.where('month', MONTH),
-        Q.where('year', YEAR),
-        Q.sortBy('rank', Q.asc),
-      )
-      .fetch()
-    setCustomers(customerRecords)
-
-    // Top vendors — sorted by rank
-    const vendorRecords = await database
-      .get<TopParty>('top_parties')
-      .query(
-        Q.where('party_type', 'vendor'),
-        Q.where('month', MONTH),
-        Q.where('year', YEAR),
-        Q.sortBy('rank', Q.asc),
-      )
-      .fetch()
-    setVendors(vendorRecords)
-
-    // Monthly trends — sales
-    const salesRecords = await database
-      .get<MonthlyTrend>('monthly_trends')
-      .query(
-        Q.where('fiscal_year', FISCAL_YEAR),
-        Q.where('trend_type', 'sales'),
-        Q.sortBy('month', Q.asc),
-      )
-      .fetch()
-    setSalesTrends(salesRecords)
-
-    // Monthly trends — purchase
-    const purchRecords = await database
-      .get<MonthlyTrend>('monthly_trends')
-      .query(
-        Q.where('fiscal_year', FISCAL_YEAR),
-        Q.where('trend_type', 'purchase'),
-        Q.sortBy('month', Q.asc),
-      )
-      .fetch()
-    setPurchTrends(purchRecords)
+    const cached = await loadDashboardV2(MONTH, YEAR)
+    if (cached) setData(cached)
   }, [])
 
-  // ── Sync from API then reload ────────────────────────────────────────────
   const runSync = useCallback(async () => {
-
-    // New: top parties + monthly trends sync
-    // Pass the raw API responses from your fetch calls here.
-    // Example assumes you have fetchTopParties() and fetchMonthlyTrend() services:
-    try {
-      // Existing overview sync
-      await syncDashboardData(MONTH, YEAR, getCurrentFinancialYear())
-    } catch (e) {
-      // Network failure — offline data remains intact
-      console.warn('Sync failed, using cached data:', e)
-    }
+    await Promise.all([
+      syncDashboardV2(MONTH, YEAR),
+      syncUpcomingPayments(FISCAL_YEAR, 'upcoming'),
+      syncUpcomingPayments(FISCAL_YEAR, 'overdue'),
+    ])
     await loadLocal()
   }, [loadLocal])
 
-  // On mount: show cached instantly, sync in background
   useEffect(() => {
     loadLocal()
     setSyncing(true)
     runSync().finally(() => setSyncing(false))
-  }, [loadLocal, runSync])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
@@ -219,268 +229,364 @@ export default function DashboardScreen() {
     setRefreshing(false)
   }, [runSync])
 
-  // ── Loading state ────────────────────────────────────────────────────────
+  // ── Loading ────────────────────────────────────────────────────────────────
   if (!data) {
     return (
-      <View style={styles.emptyContainer}>
-        <ActivityIndicator size="large" color="#2563EB" />
-        <Text style={styles.emptyText}>Loading dashboard…</Text>
-        <Text style={styles.emptyHint}>Fetching from local database</Text>
+      <View style={s.center}>
+        <Stack.Screen options={{ title: 'Dashboard' }} />
+        <ActivityIndicator size="large" color={Colors.brandColor} />
+        <Text style={s.loadingText}>Loading dashboard…</Text>
       </View>
     )
   }
 
-  const isLoss = data.isProfit === 'No'
-  const isGstCredit = data.isPayable === 'No'
-  const periodLabel = `${MONTH_NAMES[MONTH]} ${YEAR}`
+  const handleLogout = () => {
+    // your logout logic here (clear tokens, auth state, etc.)
+    SessionManager.clearSession();
+    setLogoutVisible(false);
+    router.replace('/login');
+  };
 
+  const kpi = data.kpi
+  const netPos = data.netPosition
+  const recAging = data.receivablesAging
+  const payAging = data.payablesAging
+  const overdueList = data.upcomingOverdue.slice(0, 5)
+  const upcomingList = data.upcomingUpcoming.slice(0, 5)
+  const recentInvoices = data.recentInvoices.slice(0, 5)
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  const gstIsRefund = kpi?.gst?.is_refund === '1'
+  const netGst = parseFloat(kpi?.gst?.net_payable || '0')
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
+      style={s.container}
+      contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor="#2563EB"
-        />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brandColor} />
       }
     >
-      <Stack.Screen options={{ title: 'Dashboard' }} />
+      <Stack.Screen
+        options={{
+          title: 'Dashboard',
+          headerBackVisible: false,
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => setLogoutVisible(true)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={{ alignItems: 'center', justifyContent: 'center', marginLeft: 8 }}
+            >
+              <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
+            </TouchableOpacity>
+          ),
+        }}
+      />
 
-      {/* Header */}
-      <View style={styles.header}>
+      <Modal
+        transparent
+        visible={logoutVisible}
+        animationType="fade"
+        onRequestClose={() => setLogoutVisible(false)}
+      >
+        <Pressable style={s.overlay} onPress={() => setLogoutVisible(false)}>
+          <Pressable style={s.dialog} onPress={() => { }}>
+            <Text style={s.title}>Log out of your account?</Text>
+
+            <View style={s.divider} />
+
+            <TouchableOpacity
+              style={s.actionBtn}
+              onPress={handleLogout}
+            >
+              <Text style={s.logoutText}>Log out</Text>
+            </TouchableOpacity>
+
+            <View style={s.divider} />
+
+            <TouchableOpacity
+              style={s.actionBtn}
+              onPress={() => setLogoutVisible(false)}
+            >
+              <Text style={s.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <View style={s.header}>
         <View>
-          <Text style={styles.headerTitle}>Dashboard</Text>
-          <Text style={styles.headerSub}>{periodLabel}</Text>
+          <Text style={s.headerTitle}>Dashboard</Text>
+          <Text style={s.headerSub}>{MONTH_NAMES[MONTH]} {YEAR}</Text>
         </View>
         {syncing && !refreshing && (
-          <View style={styles.syncBadge}>
-            <ActivityIndicator size="small" color="#2563EB" style={{ marginRight: 6 }} />
-            <Text style={styles.syncText}>Syncing…</Text>
+          <View style={s.syncBadge}>
+            <ActivityIndicator size="small" color={Colors.brandColor} style={{ marginRight: 6 }} />
+            <Text style={s.syncText}>Syncing…</Text>
           </View>
         )}
       </View>
 
-      {/* Hero stats */}
-      <View style={styles.heroRow}>
-        <StatCard label="Total sales" value={`₹ ${data.totalSales}`} />
-      </View>
-      <View style={styles.twoCol}>
-        <StatCard label="Invoices" value={String(data.totalInvoices)} size="sm" />
-        <StatCard label="Bills" value={String(data.totalBills)} size="sm" />
-      </View>
-
-      {/* Sales */}
-      <Section title="Sales" actionLabel="All Sales" onActionPress={() => { router.push('/SalesListScreen') }}>
-        <Row label="Total sales" value={`₹ ${data.totalSales}`} />
-        <Row label="IGST collected" value={`₹ ${data.igstCollected}`} />
-        <Row label="CGST collected" value={`₹ ${data.cgstCollected}`} />
-        <Row label="SGST collected" value={`₹ ${data.sgstCollected}`} last />
-      </Section>
-
-      {/* Purchase */}
-      <Section title="Purchase" actionLabel="All Purchases" onActionPress={() => { router.push('/purchase') }}>
-        <Row label="Total purchase" value={`₹ ${data.totalPurchase}`} />
-        <Row label="IGST paid" value={`₹ ${data.igstPaid}`} />
-        <Row label="CGST paid" value={`₹ ${data.cgstPaid}`} />
-        <Row label="SGST paid" value={`₹ ${data.sgstPaid}`} last />
-      </Section>
-
-      {/* Payments */}
-      <Section title="Payments" actionLabel="All Payments" onActionPress={() => { router.push('/PaymentListScreen') }}>
-        <Row label="Total vouchers" value={String(data.totalVouchers)} />
-        <Row label="Total paid" value={`₹ ${data.totalPaid}`} last />
-      </Section>
-
-      {/* Journal */}
-      <Section title="Journal">
-        <Row label="TDS payable" value={`₹ ${data.totalTdsPayable}`} />
-        <Row label="PF" value={`₹ ${data.totalPf}`} last />
-      </Section>
-
-      {/* Profit & Loss */}
-      <Section
-        title="Profit & Loss"
-        badge={isLoss ? 'Loss' : 'Profit'}
-        badgeType={isLoss ? 'loss' : 'profit'}
-      >
-        <Row label="Gross sales" value={`₹ ${data.grossSales}`} />
-        <Row label="Gross purchase" value={`₹ ${data.grossPurchase}`} />
-        <Row
-          label="Net"
-          value={`₹ ${data.net}`}
-          accent={isLoss ? 'loss' : 'profit'}
-          last
+      {/* ── KPI Row ──────────────────────────────────────────────────────── */}
+      <View style={s.kpiRow}>
+        <KpiCard
+          label="Total Sales"
+          value={fmt(kpi?.sales?.total_sales)}
+          sub={`${kpi?.sales?.total_invoices ?? 0} invoices`}
+          accent="green"
+          onAction={() => router.push('/SalesListScreen')}
         />
-      </Section>
-
-      {/* GST Reconciliation */}
-      <Section
-        title="GST Reconciliation"
-        badge={isGstCredit ? 'Credit' : 'Payable'}
-        badgeType={isGstCredit ? 'profit' : 'loss'}
-      >
-        <Row label="GST collected" value={`₹ ${data.gstCollected}`} />
-        <Row label="GST paid" value={`₹ ${data.gstPaid}`} />
-        <Row
-          label="Net GST liability"
-          value={`₹ ${data.netGstLiability}`}
-          accent={isGstCredit ? 'profit' : 'loss'}
-          last
+        <KpiCard
+          label="Total Purchases"
+          value={fmt(kpi?.purchases?.total_purchase)}
+          sub={`${kpi?.purchases?.total_bills ?? 0} bills`}
+          accent="red"
+          onAction={() => router.push('/purchase')}
         />
-      </Section>
+      </View>
+      <View style={s.kpiRow}>
+        <KpiCard
+          label={gstIsRefund ? 'GST Refund' : 'GST Payable'}
+          value={fmt(Math.abs(netGst))}
+          sub={`Output: ${fmt(kpi?.gst?.output_tax)} · ITC: ${fmt(kpi?.gst?.input_tax_credit)}`}
+          accent={gstIsRefund ? 'green' : 'amber'}
+        />
+        <KpiCard
+          label="TDS"
+          value={fmt(kpi?.tds?.total_tds)}
+          sub={`${kpi?.tds?.total_entries ?? 0} entries`}
+          accent="blue"
+        />
+      </View>
 
-      {/* ── Top Customers ─────────────────────────────────────────────────── */}
-      {customers.length > 0 && (
-        <Section title="Top Customers">
-          {customers.map((c, i) => (
-            <PartyRow
-              key={c.id}
-              rank={c.rank}
-              name={c.partyName}
-              gstin={c.gstinUin}
-              amount={c.totalAmount}
-              count={c.totalCount}
-              label={c.totalCount === 1 ? 'invoice' : 'invoices'}
-              last={i === customers.length - 1}
-            />
+      {/* ── Net Position ─────────────────────────────────────────────────── */}
+      <View style={s.card}>
+        <SectionHeader title="Net position" />
+        <View style={s.netRow}>
+          <View style={s.netBlock}>
+            <Text style={s.netLabel}>Receivable</Text>
+            <Text style={[s.netValue, s.green]}>{fmt(netPos?.total_receivable)}</Text>
+            <Text style={s.netSub}>Overdue: {fmt(netPos?.overdue_receivable)}</Text>
+          </View>
+          <View style={s.netDivider} />
+          <View style={s.netBlock}>
+            <Text style={s.netLabel}>Payable</Text>
+            <Text style={[s.netValue, s.red]}>{fmt(netPos?.total_payable)}</Text>
+            <Text style={s.netSub}>Overdue: {fmt(netPos?.overdue_payable)}</Text>
+          </View>
+          <View style={s.netDivider} />
+          <View style={s.netBlock}>
+            <Text style={s.netLabel}>Net</Text>
+            <Text style={[s.netValue, parseFloat(netPos?.net || '0') >= 0 ? s.green : s.red]}>
+              {fmt(netPos?.net)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* ── Receivables Aging ────────────────────────────────────────────── */}
+      <View style={s.card}>
+        <SectionHeader
+          title="Receivables"
+        />
+        <View style={s.agingMeta}>
+          <Text style={s.agingTotal}>{fmt(recAging?.total_outstanding)}</Text>
+          <Text style={s.agingCount}>{recAging?.total_count} invoices</Text>
+        </View>
+        {recAging?.buckets && <AgingBar buckets={recAging.buckets} />}
+      </View>
+
+      {/* ── Payables Aging ───────────────────────────────────────────────── */}
+      <View style={s.card}>
+        <SectionHeader
+          title="Payables"
+        />
+        <View style={s.agingMeta}>
+          <Text style={[s.agingTotal, s.red]}>{fmt(payAging?.total_outstanding)}</Text>
+          <Text style={s.agingCount}>{payAging?.total_count} bills</Text>
+        </View>
+        {payAging?.buckets && <AgingBar buckets={payAging.buckets} />}
+      </View>
+
+      {/* ── Overdue Payments ─────────────────────────────────────────────── */}
+      {overdueList.length > 0 && (
+        <View style={s.card}>
+          <SectionHeader
+            title={`Overdue payments (${overdueList.length})`}
+            actionLabel="View All"
+            onAction={() => router.push('/UpcomingPaymentsScreen')}
+          />
+          {overdueList.map((item) => (
+            <UpcomingRow key={item.purchase_id} item={item} />
           ))}
-        </Section>
+        </View>
       )}
 
-      {/* ── Top Vendors ───────────────────────────────────────────────────── */}
-      {vendors.length > 0 && (
-        <Section title="Top Vendors" actionLabel="All Vendors" onActionPress={() => { router.push('/PartyListScreen') }}>
-          {vendors.map((v, i) => (
-            <PartyRow
-              key={v.id}
-              rank={v.rank}
-              name={v.partyName}
-              gstin={v.gstinUin}
-              amount={v.totalAmount}
-              count={v.totalCount}
-              label={v.totalCount === 1 ? 'bill' : 'bills'}
-              last={i === vendors.length - 1}
-            />
+      {/* ── Upcoming Payments ────────────────────────────────────────────── */}
+      {upcomingList.length > 0 && (
+        <View style={s.card}>
+          <SectionHeader
+            title={`Upcoming payments (${upcomingList.length})`}
+            actionLabel="View All"
+            onAction={() => router.push('/UpcomingPaymentsScreen')}
+          />
+          {upcomingList.map((item) => (
+            <UpcomingRow key={item.purchase_id} item={item} />
           ))}
-        </Section>
+        </View>
       )}
 
-      {/* ── Monthly Trends ────────────────────────────────────────────────── */}
-      {(salesTrends.length > 0 || purchTrends.length > 0) && (
-        <Section title={`Monthly Trends — FY ${FISCAL_YEAR}`}>
-          {/* Sales rows */}
-          {salesTrends.map((s) => (
-            <TrendRow
-              key={s.id}
-              label={`Sales ${s.month}`}
-              amount={s.totalAmount}
-              count={s.totalCount}
-              countLabel={s.totalCount === 1 ? 'invoice' : 'invoices'}
-              color="#059669"
-            />
+      {/* ── Recent Invoices ──────────────────────────────────────────────── */}
+      {recentInvoices.length > 0 && (
+        <View style={s.card}>
+          <SectionHeader
+            title="Recent invoices"
+          />
+          {recentInvoices.map((item, i) => (
+            <View key={item.sale_id}>
+              <RecentInvoiceRow item={item} />
+              {i < recentInvoices.length - 1 && <View style={s.divider} />}
+            </View>
           ))}
-          {/* Purchase rows */}
-          {purchTrends.map((p, i) => (
-            <TrendRow
-              key={p.id}
-              label={`Purchase ${p.month}`}
-              amount={p.totalAmount}
-              count={p.totalCount}
-              countLabel={p.totalCount === 1 ? 'bill' : 'bills'}
-              color="#2563EB"
-              last={i === purchTrends.length - 1}
-            />
-          ))}
-        </Section>
+        </View>
       )}
 
-      <View style={styles.footer} />
+      {/* ── Quick links ──────────────────────────────────────────────────── */}
+      <View style={s.quickRow}>
+        {([
+          { label: 'Parties', route: '/PartyListScreen' },
+          { label: 'Payments', route: '/PaymentListScreen' },
+        ] as const).map((q) => (
+          <TouchableOpacity
+            key={q.label}
+            style={s.quickBtn}
+            onPress={() => router.push(q.route as any)}
+          >
+            <Text style={s.quickBtnText}>{q.label} →</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
+      <View style={s.footer} />
     </ScrollView>
-
-
   )
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   content: { padding: 16 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-  },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, backgroundColor: '#F3F4F6' },
+  loadingText: { fontSize: 14, color: '#6B7280' },
+  footer: { height: 32 },
+
+  // Header
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#111827', letterSpacing: -0.3 },
   headerSub: { fontSize: 13, color: '#6B7280', marginTop: 2 },
-  syncBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 0.5,
-    borderColor: '#BFDBFE',
-  },
-  syncText: { fontSize: 12, color: '#2563EB', fontWeight: '500' },
-  heroRow: { marginBottom: 10 },
-  twoCol: { flexDirection: 'row', gap: 10, marginBottom: 18 },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6', gap: 10 },
-  emptyText: { fontSize: 16, fontWeight: '600', color: '#374151' },
-  emptyHint: { fontSize: 13, color: '#9CA3AF' },
-  footer: { height: 32 },
-})
+  syncBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.brandColorLight, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 0.5, borderColor: Colors.brandColor },
+  syncText: { fontSize: 12, color: Colors.brandColor, fontWeight: '500' },
 
-const partyStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#E5E7EB',
-    gap: 10,
-  },
-  lastRow: { borderBottomWidth: 0 },
-  rankBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
+  // KPI
+  kpiRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  kpiCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, borderWidth: 0.5, borderColor: '#E5E7EB' },
+  kpiLabel: { fontSize: 11, color: '#9CA3AF', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 },
+  kpiValue: { fontSize: 18, fontWeight: '700', color: '#111827', letterSpacing: -0.3, marginBottom: 2 },
+  kpiSub: { fontSize: 11, color: '#6B7280' },
+
+  // Card
+  card: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginBottom: 14, borderWidth: 0.5, borderColor: '#E5E7EB' },
+
+  // Section header
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  sectionTitle: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  sectionAction: { backgroundColor: Colors.brandColorLight, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 0.5, borderColor: Colors.brandColorLight },
+  sectionActionText: { fontSize: 12, fontWeight: '500', color: Colors.brandColor },
+
+  // Net position
+  netRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  netBlock: { flex: 1 },
+  netDivider: { width: 0.5, backgroundColor: '#E5E7EB', alignSelf: 'stretch', marginHorizontal: 12 },
+  netLabel: { fontSize: 11, color: '#9CA3AF', marginBottom: 4 },
+  netValue: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 },
+  netSub: { fontSize: 10, color: '#9CA3AF' },
+  green: { color: '#059669' },
+  red: { color: '#DC2626' },
+
+  // Aging bar
+  agingMeta: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 10 },
+  agingTotal: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  agingCount: { fontSize: 12, color: '#9CA3AF' },
+  agingBarWrap: { gap: 10 },
+  agingBar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#F3F4F6' },
+  agingSegment: { height: 8 },
+  agingLegend: { gap: 6 },
+  agingLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  agingDot: { width: 8, height: 8, borderRadius: 4 },
+  agingLegendLabel: { fontSize: 12, color: '#6B7280', flex: 1 },
+  agingLegendVal: { fontSize: 12, fontWeight: '500', color: '#111827' },
+
+  // Upcoming / overdue rows
+  upcomingRow: { flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 8, marginBottom: 6, borderWidth: 0.5, gap: 8 },
+  upcomingDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
+  upcomingLeft: { flex: 1 },
+  upcomingParty: { fontSize: 13, fontWeight: '500', color: '#111827', marginBottom: 2 },
+  upcomingVoucher: { fontSize: 11, color: '#9CA3AF' },
+  upcomingRight: { alignItems: 'flex-end' },
+  upcomingAmount: { fontSize: 13, fontWeight: '700', color: '#111827' },
+  upcomingDaysLabel: { fontSize: 11, fontWeight: '500', marginTop: 2 },
+
+  // Recent invoices
+  invoiceRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 8 },
+  invoiceLeft: { flex: 1 },
+  invoiceParty: { fontSize: 13, fontWeight: '500', color: '#111827', marginBottom: 2 },
+  invoiceVoucher: { fontSize: 11, color: '#9CA3AF' },
+  invoiceRight: { alignItems: 'flex-end', gap: 4 },
+  invoiceAmount: { fontSize: 13, fontWeight: '700', color: '#059669' },
+  invoiceBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4, borderWidth: 0.5 },
+  invoiceBadgeText: { fontSize: 10, fontWeight: '600' },
+  divider: { height: 0.5, backgroundColor: '#F3F4F6' },
+
+  // Quick links
+  quickRow: { flexDirection: 'row', gap: 10 },
+  quickBtn: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 10, padding: 14, alignItems: 'center', borderWidth: 0.5, borderColor: '#E5E7EB' },
+  quickBtnText: { fontSize: 14, fontWeight: '500', color: Colors.brandColor },
+
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
-    flexShrink: 0,
-  },
-  rankText: { fontSize: 11, fontWeight: '600', color: '#2563EB' },
-  info: { flex: 1, minWidth: 0 },
-  name: { fontSize: 13, fontWeight: '500', color: '#111827' },
-  gstin: { fontSize: 10, color: '#9CA3AF', marginTop: 1 },
-  right: { alignItems: 'flex-end', flexShrink: 0 },
-  amount: { fontSize: 13, fontWeight: '600', color: '#111827' },
-  count: { fontSize: 10, color: '#6B7280', marginTop: 1 },
-})
-
-const trendStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#E5E7EB',
-    gap: 10,
   },
-  lastRow: { borderBottomWidth: 0 },
-  dot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  label: { flex: 1, fontSize: 13, color: '#374151' },
-  right: { alignItems: 'flex-end' },
-  amount: { fontSize: 13, fontWeight: '600', color: '#111827' },
-  count: { fontSize: 10, color: '#6B7280', marginTop: 1 },
+  dialog: {
+    width: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    color: '#000',
+  },
+
+  actionBtn: {
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF3B30',
+  },
+  cancelText: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#000',
+  },
 })

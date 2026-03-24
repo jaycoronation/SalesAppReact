@@ -3,7 +3,7 @@ import { AppUtils, isValidEmail } from "@/utils/AppUtils";
 import CustomButton from "@/utils/CommonWidget";
 import { Fonts } from "@/utils/fonts";
 import { SessionManager } from "@/utils/sessionManager";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -11,7 +11,7 @@ import {
   StyleSheet,
   Text,
   ToastAndroid,
-  View
+  View,
 } from "react-native";
 import { TextInput } from "react-native-paper";
 
@@ -68,6 +68,15 @@ export default function LoginScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
+
+        <Stack.Screen
+          options={{
+            title: 'Login',
+            headerBackVisible: false,
+            headerShown: false,
+          }}
+        />
+
         <View style={styles.content}>
           {/* Logo Section */}
           <View style={styles.logoContainer}>
@@ -178,6 +187,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: Fonts.medium,
     color: "#000000",
+    marginTop: 42,
     letterSpacing: -0.5,
   },
   subtitle: {

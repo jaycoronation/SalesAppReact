@@ -1,5 +1,6 @@
 import Party from '@/Database/models/Party'
 import { loadParties, syncParties } from '@/Services/Partysync'
+import { Colors } from '@/utils/colors'
 import { router, Stack } from 'expo-router'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -30,7 +31,7 @@ function formatAmount(val: string | number): string {
 function getTypeColor(type: string): { bg: string; text: string; border: string } {
   switch (type) {
     case 'customer': return { bg: '#ECFDF5', text: '#065F46', border: '#A7F3D0' }
-    case 'vendor': return { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE' }
+    case 'vendor': return { bg: Colors.brandColorLight, text: Colors.brandColor, border: Colors.brandColor }
     default: return { bg: '#F5F3FF', text: '#5B21B6', border: '#DDD6FE' }
   }
 }
@@ -168,7 +169,7 @@ export default function PartyListScreen() {
     return (
       <View style={s.center}>
         <Stack.Screen options={{ title: 'Parties' }} />
-        <ActivityIndicator size="large" color="#2563EB" />
+        <ActivityIndicator size="large" color={Colors.brandColor} />
         <Text style={s.loadingText}>Loading parties…</Text>
       </View>
     )
@@ -188,7 +189,7 @@ export default function PartyListScreen() {
           </View>
           {syncing && !refreshing && (
             <View style={s.syncBadge}>
-              <ActivityIndicator size="small" color="#2563EB" style={{ marginRight: 6 }} />
+              <ActivityIndicator size="small" color={Colors.brandColor} style={{ marginRight: 6 }} />
               <Text style={s.syncText}>Syncing…</Text>
             </View>
           )}
@@ -237,7 +238,7 @@ export default function PartyListScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563EB" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brandColor} />
         }
         ListEmptyComponent={
           <View style={s.empty}>
@@ -271,8 +272,8 @@ const s = StyleSheet.create({
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   title: { fontSize: 22, fontWeight: '700', color: '#111827', letterSpacing: -0.3 },
   subtitle: { fontSize: 13, color: '#6B7280', marginTop: 2 },
-  syncBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 0.5, borderColor: '#BFDBFE' },
-  syncText: { fontSize: 12, color: '#2563EB', fontWeight: '500' },
+  syncBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.brandColorLight, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 0.5, borderColor: Colors.brandColor },
+  syncText: { fontSize: 12, color: Colors.brandColor, fontWeight: '500' },
 
   searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, borderWidth: 0.5, borderColor: '#E5E7EB', marginBottom: 10 },
   searchIcon: { fontSize: 14, marginRight: 8 },
@@ -281,7 +282,7 @@ const s = StyleSheet.create({
 
   tabsRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   tab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#FFFFFF', borderWidth: 0.5, borderColor: '#E5E7EB' },
-  tabActive: { backgroundColor: '#2563EB', borderColor: '#2563EB' },
+  tabActive: { backgroundColor: Colors.brandColor, borderColor: Colors.brandColor },
   tabText: { fontSize: 13, fontWeight: '500', color: '#6B7280' },
   tabTextActive: { color: '#FFFFFF' },
 })

@@ -1,10 +1,10 @@
 import { database } from '@/Database'
 import PurchaseDetail from '@/Database/models/Purchasedetail'
+import { ApiEndPoints } from "@/network/ApiEndPoint"
 import { SessionManager } from '@/utils/sessionManager'
 import { Q } from '@nozbe/watermelondb'
 import NetInfo from '@react-native-community/netinfo'
 
-const BASE_URL = 'http://192.168.29.245:5000'
 
 // ─── API Types ────────────────────────────────────────────────────────────────
 
@@ -95,7 +95,7 @@ function applyDetailFields(record: PurchaseDetail, d: PurchaseDetailApiData): vo
     record.gstinUin = safeStr(d.gstin_uin)
     record.fiscalYear = safeStr(d.fiscal_year)
     record.txnDate = safeStr(d.txn_date)
-    record.dueDate = safeNum(d.due_date)    // parse unix string → number
+    record.dueDate = safeStr(d.due_date)    // parse unix string → number
     record.voucherNo = safeStr(d.voucher_no)
     record.voucherType = safeStr(d.voucher_type)
     record.particulars = safeStr(d.particulars)
@@ -153,7 +153,7 @@ export async function syncPurchaseDetail(purchaseId: string): Promise<void> {
 
     try {
         const res = await fetch(
-            `${BASE_URL}/api/register/purchase_detail?purchase_id=${purchaseId}`,
+            `${ApiEndPoints.BASE_URL}register/purchase_detail?purchase_id=${purchaseId}`,
             { method: 'GET', headers: await authHeaders() },
         )
 

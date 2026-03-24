@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
 import { SessionManager } from '@/utils/sessionManager';
 import { Redirect } from 'expo-router';
-import { View, ActivityIndicator } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 
 export default function Index() {
     const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);

@@ -1,5 +1,6 @@
+import { Colors } from '@/utils/colors'
 import React from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 
 interface StatCardProps {
   label: string
@@ -62,6 +63,6 @@ const styles = StyleSheet.create({
     color: '#DC2626',
   },
   info: {
-    color: '#2563EB',
+    color: Colors.brandColor,
   },
 })

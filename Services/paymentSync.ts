@@ -1,10 +1,10 @@
 import { database } from '@/Database'
 import PaymentEntry from '@/Database/models/PaymentEntry'
+import { ApiEndPoints } from "@/network/ApiEndPoint"
 import { SessionManager } from '@/utils/sessionManager'
 import { Q } from '@nozbe/watermelondb'
 import NetInfo from '@react-native-community/netinfo'
 
-const BASE_URL = 'http://192.168.29.245:5000'
 
 // ─── API Types ────────────────────────────────────────────────────────────────
 
@@ -102,7 +102,7 @@ async function syncPaymentPage(
     page: number,
 ): Promise<{ totalRecords: number }> {
     const res = await fetch(
-        `${BASE_URL}/api/register/payment_list?month=${month}&year=${year}&page=${page}&limit=10`,
+        `${ApiEndPoints.BASE_URL}register/payment_list?month=${month}&year=${year}&page=${page}&limit=10`,
         { method: 'GET', headers: await authHeaders() },
     )
 

@@ -22,8 +22,8 @@ export default class SaleDetail extends Model {
     @field('gstin_uin') gstinUin!: string
 
     @field('fiscal_year') fiscalYear!: string
-    @field('txn_date') txnDate!: number       // unix timestamp
-    @field('due_date') dueDate!: number       // unix timestamp
+    @field('txn_date') txnDate!: string       // unix timestamp
+    @field('due_date') dueDate!: string       // unix timestamp
     @field('voucher_no') voucherNo!: string
     @field('voucher_type') voucherType!: string
     @field('particulars') particulars!: string

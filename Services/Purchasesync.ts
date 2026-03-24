@@ -1,10 +1,10 @@
 import { database } from '@/Database'
 import PurchaseEntry from '@/Database/models/PurchaseEntry'
+import { ApiEndPoints } from "@/network/ApiEndPoint"
 import { SessionManager } from '@/utils/sessionManager'
 import { Q } from '@nozbe/watermelondb'
 import NetInfo from '@react-native-community/netinfo'
 
-const BASE_URL = 'http://192.168.29.245:5000' // ← replace with your base URL
 
 // ─── API Types ────────────────────────────────────────────────────────────────
 
@@ -128,7 +128,7 @@ async function syncPurchasePage(
     page: number,
 ): Promise<{ totalRecords: number; fetched: number }> {
     const res = await fetch(
-        `${BASE_URL}/api/register/purchase_list?month=${month}&year=${year}&page=${page}&limit=10`,
+        `${ApiEndPoints.BASE_URL}register/purchase_list?month=${month}&year=${year}&page=${page}&limit=10`,
         { method: 'GET', headers: await authHeaders() },
     )
 

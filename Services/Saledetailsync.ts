@@ -1,10 +1,10 @@
 import { database } from '@/Database'
 import SaleDetail from '@/Database/models/SalesDetail'
+import { ApiEndPoints } from "@/network/ApiEndPoint"
 import { SessionManager } from '@/utils/sessionManager'
 import { Q } from '@nozbe/watermelondb'
 import NetInfo from '@react-native-community/netinfo'
 
-const BASE_URL = 'http://192.168.29.245:5000'
 
 // ─── API Types ────────────────────────────────────────────────────────────────
 
@@ -25,8 +25,8 @@ export interface SaleDetailApiData {
     party_gstin: string
     party_type: string
     gstin_uin: string
-    txn_date: number
-    due_date: number
+    txn_date: string
+    due_date: string
     payment_status: string
     amount_received: number | null
     particulars: string
@@ -85,8 +85,8 @@ function applyDetailFields(record: SaleDetail, d: SaleDetailApiData): void {
     record.partyType = safeStr(d.party_type)
     record.gstinUin = safeStr(d.gstin_uin)
     record.fiscalYear = safeStr(d.fiscal_year)
-    record.txnDate = safeNum(d.txn_date)
-    record.dueDate = safeNum(d.due_date)
+    record.txnDate = safeStr(d.txn_date)
+    record.dueDate = safeStr(d.due_date)
     record.voucherNo = safeStr(d.voucher_no)
     record.voucherType = safeStr(d.voucher_type)
     record.particulars = safeStr(d.particulars)
@@ -137,7 +137,7 @@ export async function syncSaleDetail(saleId: string): Promise<void> {
 
     try {
         const res = await fetch(
-            `${BASE_URL}/api/register/sales_detail?sale_id=${saleId}`,
+            `${ApiEndPoints.BASE_URL}register/sales_detail?sale_id=${saleId}`,
             { method: 'GET', headers: await authHeaders() },
         )
 

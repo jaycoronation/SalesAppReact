@@ -1,5 +1,6 @@
 import SaleDetail, { LineItem } from '@/Database/models/SalesDetail'
 import { loadSaleDetail, syncSaleDetail } from '@/Services/Saledetailsync'
+import { Colors } from '@/utils/colors'
 import { Stack, useLocalSearchParams } from 'expo-router'
 import React, { useCallback, useEffect, useState } from 'react'
 import {
@@ -131,7 +132,7 @@ export default function SaleDetailScreen() {
     return (
       <View style={s.center}>
         <Stack.Screen options={{ title: 'Sale Detail' }} />
-        <ActivityIndicator size="large" color="#2563EB" />
+        <ActivityIndicator size="large" color={Colors.brandColor} />
         <Text style={s.loadingText}>Loading…</Text>
       </View>
     )
@@ -174,7 +175,7 @@ export default function SaleDetailScreen() {
             <Text style={s.partyGstin}>{detail.partyGstin || detail.gstinUin}</Text>
           </View>
           {syncing && (
-            <ActivityIndicator size="small" color="#2563EB" />
+            <ActivityIndicator size="small" color={Colors.brandColor} />
           )}
         </View>
 
@@ -187,12 +188,12 @@ export default function SaleDetailScreen() {
         <View style={s.datesRow}>
           <View>
             <Text style={s.dateLabel}>Invoice date</Text>
-            <Text style={s.dateValue}>{formatUnixDate(detail.txnDate)}</Text>
+            <Text style={s.dateValue}>{detail.txnDate}</Text>
           </View>
           <View style={s.dateDivider} />
           <View>
             <Text style={s.dateLabel}>Due date</Text>
-            <Text style={s.dateValue}>{formatUnixDate(detail.dueDate)}</Text>
+            <Text style={s.dateValue}>{detail.dueDate}</Text>
           </View>
           <View style={s.dateDivider} />
           <View>
@@ -302,7 +303,7 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, backgroundColor: '#F3F4F6' },
   loadingText: { fontSize: 14, color: '#6B7280' },
   errorText: { fontSize: 16, fontWeight: '600', color: '#374151' },
-  retryBtn: { paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#2563EB', borderRadius: 8 },
+  retryBtn: { paddingHorizontal: 20, paddingVertical: 10, backgroundColor: Colors.brandColor, borderRadius: 8 },
   retryText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   footer: { height: 32 },
 
@@ -320,7 +321,7 @@ const s = StyleSheet.create({
   partyName: { fontSize: 17, fontWeight: '700', color: '#111827', letterSpacing: -0.3 },
   partyGstin: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   heroMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
-  voucherNo: { fontSize: 13, fontWeight: '600', color: '#2563EB' },
+  voucherNo: { fontSize: 13, fontWeight: '600', color: Colors.brandColor },
   voucherType: { fontSize: 12, color: '#9CA3AF' },
 
   datesRow: {

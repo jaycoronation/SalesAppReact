@@ -1,6 +1,7 @@
 import { database } from '@/Database'
 import PurchaseEntry from '@/Database/models/PurchaseEntry'
 import { syncPurchases } from '@/Services/Purchasesync'
+import { Colors } from '@/utils/colors'
 import { Q } from '@nozbe/watermelondb'
 import { Stack, router } from 'expo-router'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
@@ -198,7 +199,7 @@ export default function PurchaseListScreen() {
         return (
             <View style={styles.emptyContainer}>
                 <Stack.Screen options={{ title: 'Purchases' }} />
-                <ActivityIndicator size="large" color="#2563EB" />
+                <ActivityIndicator size="large" color={Colors.brandColor} />
                 <Text style={styles.emptyText}>Loading purchases…</Text>
                 <Text style={styles.emptyHint}>Fetching from local database</Text>
             </View>
@@ -220,7 +221,7 @@ export default function PurchaseListScreen() {
                 </View>
                 {syncing && !refreshing && (
                     <View style={styles.syncBadge}>
-                        <ActivityIndicator size="small" color="#2563EB" style={{ marginRight: 6 }} />
+                        <ActivityIndicator size="small" color={Colors.brandColor} style={{ marginRight: 6 }} />
                         <Text style={styles.syncText}>Syncing…</Text>
                     </View>
                 )}
@@ -238,7 +239,7 @@ export default function PurchaseListScreen() {
                     <RefreshControl
                         refreshing={refreshing}
                         onRefresh={onRefresh}
-                        tintColor="#2563EB"
+                        tintColor={Colors.brandColor}
                     />
                 }
                 ListFooterComponent={
@@ -272,14 +273,14 @@ const styles = StyleSheet.create({
     syncBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#EFF6FF',
+        backgroundColor: Colors.brandColorLight,
         paddingHorizontal: 10,
         paddingVertical: 5,
         borderRadius: 20,
         borderWidth: 0.5,
-        borderColor: '#BFDBFE',
+        borderColor: Colors.brandColor,
     },
-    syncText: { fontSize: 12, color: '#2563EB', fontWeight: '500' },
+    syncText: { fontSize: 12, color: Colors.brandColor, fontWeight: '500' },
     listContent: { paddingHorizontal: 16, paddingBottom: 16 },
     footerLoader: { paddingVertical: 20, alignItems: 'center' },
     footer: { height: 32 },
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
         marginTop: 8,
         paddingHorizontal: 20,
         paddingVertical: 10,
-        backgroundColor: '#2563EB',
+        backgroundColor: Colors.brandColor,
         borderRadius: 8,
     },
     retryText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
@@ -331,7 +332,7 @@ const cardStyles = StyleSheet.create({
     },
     voucherNo: {
         fontSize: 12,
-        color: '#2563EB',
+        color: Colors.brandColor,
         fontWeight: '500',
     },
     txnDate: {
@@ -349,17 +350,17 @@ const cardStyles = StyleSheet.create({
         gap: 8,
     },
     categoryBadge: {
-        backgroundColor: '#EFF6FF',
+        backgroundColor: Colors.brandColorLight,
         borderRadius: 5,
         paddingHorizontal: 7,
         paddingVertical: 3,
         borderWidth: 0.5,
-        borderColor: '#BFDBFE',
+        borderColor: Colors.brandColor,
     },
     categoryText: {
         fontSize: 11,
         fontWeight: '500',
-        color: '#2563EB',
+        color: Colors.brandColor,
     },
     meta: {
         fontSize: 11,

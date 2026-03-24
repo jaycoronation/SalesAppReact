@@ -3,6 +3,7 @@ import PartyDetail, {
   SaleInvoiceListItem,
 } from '@/Database/models/Partydetails'
 import { loadPartyDetail, syncPartyDetail } from '@/Services/Partydetailsync'
+import { Colors } from '@/utils/colors'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import React, { useCallback, useEffect, useState } from 'react'
 import {
@@ -47,7 +48,7 @@ function getStatusLabel(status: string, isOverdue: string): string {
 function getTypeColor(type: string) {
   switch (type) {
     case 'customer': return { bg: '#ECFDF5', text: '#065F46', border: '#A7F3D0' }
-    case 'vendor': return { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE' }
+    case 'vendor': return { bg: Colors.brandColorLight, text: '#1D4ED8', border: Colors.brandColor }
     default: return { bg: '#F5F3FF', text: '#5B21B6', border: '#DDD6FE' }
   }
 }
@@ -196,7 +197,7 @@ export default function PartyDetailScreen() {
     return (
       <View style={s.center}>
         <Stack.Screen options={{ title: 'Party Detail' }} />
-        <ActivityIndicator size="large" color="#2563EB" />
+        <ActivityIndicator size="large" color={Colors.brandColor} />
         <Text style={s.loadingText}>Loading…</Text>
       </View>
     )
@@ -246,7 +247,7 @@ export default function PartyDetailScreen() {
                 {detail.partyType.charAt(0).toUpperCase() + detail.partyType.slice(1)}
               </Text>
             </View>
-            {syncing && <ActivityIndicator size="small" color="#2563EB" style={{ marginTop: 6 }} />}
+            {syncing && <ActivityIndicator size="small" color={Colors.brandColor} style={{ marginTop: 6 }} />}
           </View>
         </View>
 
@@ -348,7 +349,7 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, backgroundColor: '#F3F4F6' },
   loadingText: { fontSize: 14, color: '#6B7280' },
   errorText: { fontSize: 16, fontWeight: '600', color: '#374151' },
-  retryBtn: { paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#2563EB', borderRadius: 8 },
+  retryBtn: { paddingHorizontal: 20, paddingVertical: 10, backgroundColor: Colors.brandColor, borderRadius: 8 },
   retryText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   footer: { height: 32 },
 
@@ -406,9 +407,9 @@ const s = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  tabBtnActive: { borderBottomColor: '#2563EB' },
+  tabBtnActive: { borderBottomColor: Colors.brandColor },
   tabBtnText: { fontSize: 13, fontWeight: '500', color: '#6B7280' },
-  tabBtnTextActive: { color: '#2563EB', fontWeight: '600' },
+  tabBtnTextActive: { color: Colors.brandColor, fontWeight: '600' },
   emptyTab: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', padding: 24 },
   divider: { height: 0.5, backgroundColor: '#F3F4F6', marginHorizontal: 14 },
 
@@ -416,14 +417,14 @@ const s = StyleSheet.create({
   invoiceRow: { flexDirection: 'row', padding: 14, alignItems: 'flex-start', gap: 8 },
   invoiceLeft: { flex: 1 },
   invoiceTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
-  voucherNo: { fontSize: 13, fontWeight: '600', color: '#2563EB' },
+  voucherNo: { fontSize: 13, fontWeight: '600', color: Colors.brandColor },
   typePill: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: Colors.brandColorLight,
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderWidth: 0.5,
-    borderColor: '#BFDBFE',
+    borderColor: Colors.brandColor,
   },
   typePillText: { fontSize: 10, fontWeight: '500', color: '#1D4ED8' },
   invoiceDates: { fontSize: 11, color: '#9CA3AF' },

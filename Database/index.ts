@@ -1,6 +1,7 @@
 import { Database } from "@nozbe/watermelondb"
 import LokiJSAdapter from "@nozbe/watermelondb/adapters/lokijs"
 import DashboardOverview from "./DashboardOverview"
+import DashboardOverviewV2 from './models/dashboardoverview'
 import MonthlyTrend from "./models/MonthlyTrend"
 import Party from "./models/Party"
 import PartyDetail from "./models/Partydetails"
@@ -10,6 +11,7 @@ import PurchaseEntry from "./models/PurchaseEntry"
 import SalesDetail from "./models/SalesDetail"
 import SaleEntry from "./models/SalesEntry"
 import TopParty from "./models/TopParty"
+import UpcomingPayment from './models/Upcomingpayment'
 import schema from "./schema"
 
 // LokiJS adapter — pure JavaScript, no native linking required.
@@ -29,14 +31,16 @@ export const database = new Database({
   adapter,
   modelClasses: [
     DashboardOverview,
-    TopParty,
+    DashboardOverviewV2,
     MonthlyTrend,
+    TopParty,
     PurchaseEntry,
     PurchaseDetail,
     SaleEntry,
-    PaymentEntry,
     SalesDetail,
+    PaymentEntry,
     Party,
     PartyDetail,
+    UpcomingPayment,
   ],
 })
