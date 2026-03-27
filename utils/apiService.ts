@@ -4,7 +4,6 @@ import { SessionManager } from "./sessionManager";
 export const apiGet = async (url: string) => {
   try {
     const token = await SessionManager.getToken();
-console.log("GET API token:", url);
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -20,7 +19,6 @@ console.log("GET API token:", url);
       status: response.status,
     };
   } catch (error) {
-    console.log("GET API Error:", error);
     return { success: false, data: null };
   }
 };

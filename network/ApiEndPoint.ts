@@ -1,4 +1,5 @@
-const BASE_URL = "https://sps-velocity.onrender.com/api/";
+// const BASE_URL = "https://sps-velocity.onrender.com/api/";
+const BASE_URL = "http://192.168.29.245:5000/api/";
 
 export const ApiEndPoints = {
   BASE_URL,

@@ -1,253 +1,456 @@
 import { loginAPI } from "@/network/authService";
 import { AppUtils, isValidEmail } from "@/utils/AppUtils";
-import CustomButton from "@/utils/CommonWidget";
 import { Fonts } from "@/utils/fonts";
 import { SessionManager } from "@/utils/sessionManager";
 import { Stack, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
+  Animated,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
-  ToastAndroid,
   View,
 } from "react-native";
 import { TextInput } from "react-native-paper";
 
-export default function LoginScreen() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [secureText, setSecureText] = useState(true);
+// ─── Theme ────────────────────────────────────────────────────────────────────
+const T = {
+  bg: '#FFFFFF',
+  surface: '#F9F9FB',
+  surfaceElevated: '#FFFFFF',
+  border: '#E4E4EC',
+  borderFocus: '#E2101F',
+  accent: '#E2101F',
+  accentDim: '#F9A8AD',
+  accentGlow: 'rgba(226,16,31,0.10)',
+  accentLight: '#FFF1F1',
+  text: '#0F0F14',
+  textSecondary: '#6B6B7E',
+  textMuted: '#AFAFBF',
+  white: '#FFFFFF',
+}
 
-  const router = useRouter();
+// ─── Animated Input ───────────────────────────────────────────────────────────
+function ThemedInput({
+  label,
+  value,
+  onChangeText,
+  secureTextEntry,
+  keyboardType,
+  textContentType,
+  autoCapitalize,
+  editable,
+  onSubmitEditing,
+  rightIcon,
+}: any) {
+  const [focused, setFocused] = useState(false)
+  const borderAnim = useRef(new Animated.Value(0)).current
+
+  const onFocus = () => {
+    setFocused(true)
+    Animated.timing(borderAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start()
+  }
+  const onBlur = () => {
+    setFocused(false)
+    Animated.timing(borderAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start()
+  }
+
+  const borderColor = borderAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [T.border, T.borderFocus],
+  })
+
+  const bgColor = borderAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [T.surface, T.accentLight],
+  })
+
+  return (
+    <Animated.View style={[styles.inputWrap, { borderColor, backgroundColor: bgColor }]}>
+      <TextInput
+        label={label}
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={secureTextEntry}
+        keyboardType={keyboardType}
+        textContentType={textContentType}
+        autoCapitalize={autoCapitalize ?? 'none'}
+        autoCorrect={false}
+        editable={editable !== false}
+        onSubmitEditing={onSubmitEditing}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        mode="flat"
+        underlineColor="transparent"
+        activeUnderlineColor="transparent"
+        textColor={T.text}
+        placeholderTextColor={T.textMuted}
+        contentStyle={styles.inputContent}
+        style={styles.inputInner}
+        theme={{
+          colors: {
+            onSurfaceVariant: focused ? T.accent : T.textSecondary,
+            background: 'transparent',
+          },
+        }}
+        right={rightIcon}
+      />
+    </Animated.View>
+  )
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+export default function LoginScreen() {
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [secureText, setSecureText] = useState(true)
+  const router = useRouter()
 
   const handleLogin = () => {
     if (!username) {
-      ToastAndroid.show('Please enter email', ToastAndroid.SHORT);
-      return;
+      AppUtils.showToast('Please enter email')
+      return
     }
-    else if (!isValidEmail(username)) {
-      ToastAndroid.show('Please enter a valid email', ToastAndroid.SHORT);
-      return;
+    if (!isValidEmail(username)) {
+      AppUtils.showToast('Please enter a valid email')
+      return
     }
-    else if (!password) {
-      ToastAndroid.show('Please enter password', ToastAndroid.SHORT);
-      return;
+    if (!password) {
+      AppUtils.showToast('Please enter password')
+      return
     }
-    else {
-      callAPI();
-    }
-
-  };
+    callAPI()
+  }
 
   const callAPI = async () => {
     try {
-      setIsLoading(true);
-
-      const res = await loginAPI(username, password);
-
+      setIsLoading(true)
+      const res = await loginAPI(username, password)
       if (res.success && res.data.success === 1) {
-        await SessionManager.setSession(res.data);
-        router.push("/dashboard_new");
+        await SessionManager.setSession(res.data)
+        router.push('/BottomNavigation')
       } else {
-        AppUtils.showToast(res.data?.message || "Login failed");
+        AppUtils.showToast(res.data?.message || 'Login failed')
       }
-
-    } catch (error) {
-      AppUtils.showToast("Something went wrong");
+    } catch {
+      AppUtils.showToast('Something went wrong')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Background accent glow */}
+      <View style={styles.glowTopRight} />
+      <View style={styles.glowBottomLeft} />
+
+      {/* Top red stripe */}
+      <View style={styles.topStripe} />
+
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-
-        <Stack.Screen
-          options={{
-            title: 'Login',
-            headerBackVisible: false,
-            headerShown: false,
-          }}
-        />
-
         <View style={styles.content}>
-          {/* Logo Section */}
-          <View style={styles.logoContainer}>
-            <Text style={styles.title}>Enter your detail to login</Text>
+
+          {/* ── Brand mark ───────────────────────────────────── */}
+          <View style={styles.brandRow}>
+            <View style={styles.logoBox}>
+              <Text style={styles.logoMark}>S</Text>
+            </View>
+            <View>
+              <Text style={styles.appName}>SalesApp</Text>
+              <Text style={styles.appTagline}>Business Intelligence</Text>
+            </View>
           </View>
 
+          {/* ── Card ─────────────────────────────────────────── */}
+          <View style={styles.card}>
 
-          {/* Login Form */}
-          <TextInput
-            style={styles.input}
-            contentStyle={{ fontSize: 16, fontWeight: "600" }}
-            label="Email"
-            mode="outlined"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            textContentType="emailAddress"
-            keyboardType="email-address"
-            autoCorrect={false}
-            editable={!isLoading}
-            outlineStyle={{
-              borderRadius: 12,
-            }}
-          />
+            {/* ── Heading ──────────────────────────────────────── */}
+            <View style={styles.headingBlock}>
+              <Text style={styles.heading}>Welcome back</Text>
+              <Text style={styles.subheading}>Sign in to your account to continue</Text>
+            </View>
 
-          <TextInput
-            style={styles.input}
-            label="Password"
-            mode="outlined"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={secureText}
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!isLoading}
-            onSubmitEditing={handleLogin}
-            contentStyle={{ fontSize: 16, fontWeight: "600" }}
-            outlineStyle={{
-              borderRadius: 12,
-            }}
-            right={
-              <TextInput.Icon
-                icon={secureText ? "eye-off" : "eye"}
-                onPress={() => setSecureText(!secureText)}
-              />
-            }
-          />
+            {/* ── Divider ──────────────────────────────────────── */}
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>CREDENTIALS</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-          <CustomButton
-            style={{ marginTop: 22 }}
-            title="Submit"
-            onPress={handleLogin}
-            loading={isLoading}
-          />
-          {/* Footer */}
+            {/* ── Form ─────────────────────────────────────────── */}
+            <ThemedInput
+              label="Email address"
+              value={username}
+              onChangeText={setUsername}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              editable={!isLoading}
+            />
+
+            <View style={{ height: 12 }} />
+
+            <ThemedInput
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={secureText}
+              textContentType="password"
+              editable={!isLoading}
+              onSubmitEditing={handleLogin}
+              rightIcon={
+                <TextInput.Icon
+                  icon={secureText ? 'eye-off' : 'eye'}
+                  color={T.textSecondary}
+                  onPress={() => setSecureText(!secureText)}
+                />
+              }
+            />
+
+            {/* ── Forgot password ──────────────────────────────── */}
+            <Pressable style={styles.forgotRow}>
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </Pressable>
+
+            {/* ── Submit ───────────────────────────────────────── */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.submitBtn,
+                pressed && styles.submitBtnPressed,
+                isLoading && styles.submitBtnDisabled,
+              ]}
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Text style={styles.submitText}>Signing in…</Text>
+              ) : (
+                <Text style={styles.submitText}>Sign In →</Text>
+              )}
+            </Pressable>
+
+          </View>
+
+          {/* ── Footer ───────────────────────────────────────── */}
+          <Text style={styles.footer}>
+            Secure · Encrypted · Private
+          </Text>
 
         </View>
       </KeyboardAvoidingView>
     </View>
-  );
-
+  )
 }
 
-
-
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: T.bg,
   },
-  keyboardView: {
-    flex: 1,
+
+  // Top stripe
+  topStripe: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: T.accent,
   },
+
+  // Background glows
+  glowTopRight: {
+    position: 'absolute',
+    top: -60,
+    right: -80,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: T.accentGlow,
+  },
+  glowBottomLeft: {
+    position: 'absolute',
+    bottom: 40,
+    left: -100,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(226,16,31,0.04)',
+  },
+
+  keyboardView: { flex: 1 },
+
   content: {
     flex: 1,
-    padding: 24,
-    justifyContent: "flex-start",
+    paddingHorizontal: 24,
+    paddingTop: 64,
     maxWidth: 480,
-    width: "100%",
-    alignSelf: "center",
+    width: '100%',
+    alignSelf: 'center',
   },
-  logoContainer: {
-    alignItems: "flex-start",
-    marginBottom: 22,
-    marginTop: 42,
+
+  // Brand
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 32,
   },
-  logoWrapper: {
-    width: 120,
-    height: 120,
-    marginBottom: 24,
-    borderRadius: 24,
-    backgroundColor: "#141414",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#DC2626",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
+  logoBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: T.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: T.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
     elevation: 8,
-    borderWidth: 1.5,
-    borderColor: "#2C2C2C",
   },
-  logo: {
-    width: 80,
-    height: 80,
-  },
-  title: {
+  logoMark: {
     fontSize: 22,
-    fontFamily: Fonts.medium,
-    color: "#000000",
-    marginTop: 42,
+    fontWeight: '800',
+    color: T.white,
     letterSpacing: -0.5,
   },
-  subtitle: {
-    fontSize: 16,
-    color: "#9CA3AF",
-    fontWeight: "500",
+  appName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: T.text,
+    letterSpacing: -0.3,
+    fontFamily: Fonts.medium,
+  },
+  appTagline: {
+    fontSize: 11,
+    color: T.textMuted,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginTop: 1,
   },
 
-  inputContainer: {
+  // Card
+  card: {
+    backgroundColor: T.white,
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 20,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: T.border,
+  },
+
+  // Heading
+  headingBlock: {
     marginBottom: 24,
   },
-  label: {
+  heading: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: T.text,
+    letterSpacing: -0.7,
+    fontFamily: Fonts.medium,
+    marginBottom: 4,
+  },
+  subheading: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#F8FAFC",
-    marginBottom: 10,
+    color: T.textSecondary,
+    lineHeight: 20,
+  },
+
+  // Divider
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 0.5,
+    backgroundColor: T.border,
+  },
+  dividerText: {
+    fontSize: 10,
+    color: T.textMuted,
+    letterSpacing: 1.5,
+  },
+
+  // Input
+  inputWrap: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  inputInner: {
+    backgroundColor: 'transparent',
+    fontSize: 15,
+  },
+  inputContent: {
+    fontSize: 15,
+    fontWeight: '500',
+    paddingTop: 8,
+  },
+
+  // Forgot
+  forgotRow: {
+    alignSelf: 'flex-end',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  forgotText: {
+    fontSize: 13,
+    color: T.accent,
+    fontWeight: '600',
+  },
+
+  // Submit button
+  submitBtn: {
+    backgroundColor: T.accent,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 16,
+    shadowColor: T.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  submitBtnPressed: {
+    backgroundColor: '#B90D18',
+    shadowOpacity: 0.15,
+  },
+  submitBtnDisabled: {
+    backgroundColor: T.accentDim,
+    shadowOpacity: 0.08,
+  },
+  submitText: {
+    color: T.white,
+    fontSize: 15,
+    fontWeight: '700',
     letterSpacing: 0.3,
   },
-  inputWrapper: {
-    backgroundColor: "#0D0D0D",
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: "#2C2C2C",
-  },
-  input: {
-    marginTop: 14,
-    fontSize: 12,
-    fontWeight: "600",
-    borderRadius: 12,
 
-  },
-  loginButton: {
-    backgroundColor: "#DC2626",
-    borderRadius: 12,
-    padding: 12,
-    alignItems: "center",
-    marginTop: 22,
-    shadowColor: "#DC2626",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 14,
-    elevation: 6,
-  },
-  loginButtonDisabled: {
-    backgroundColor: "#2C2C2C",
-    shadowOpacity: 0.1,
-  },
-  loginButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
+  // Footer
   footer: {
-    marginTop: 40,
-    alignItems: "center",
+    marginTop: 28,
+    textAlign: 'center',
+    fontSize: 11,
+    color: T.textMuted,
+    letterSpacing: 1,
   },
-  footerText: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-});
+})

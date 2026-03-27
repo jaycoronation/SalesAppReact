@@ -58,6 +58,9 @@ export async function syncDashboardV2(month: number, year: number): Promise<void
                 record.payablesAgingJson = JSON.stringify(d.payables_aging ?? {})
                 record.upcomingPaymentsJson = JSON.stringify(d.upcoming_payments ?? {})
                 record.recentInvoicesJson = JSON.stringify(d.recent_invoices ?? [])
+                record.stockOverviewJson = JSON.stringify(d.stock_overview ?? {})
+                record.stockGradeOverviewJson = JSON.stringify(d.stock_grade_overview ?? [])
+                record.profitLossJson = JSON.stringify(d.profit_loss ?? {})  // ← add this
             }
 
             if (existing.length > 0) {
@@ -67,7 +70,6 @@ export async function syncDashboardV2(month: number, year: number): Promise<void
             }
         })
 
-        console.log(`Dashboard v2 sync complete — ${month}/${year}`)
     } catch (err) {
         console.warn('Dashboard v2 sync failed, using cached data:', err)
     }
@@ -130,13 +132,21 @@ export async function syncUpcomingPayments(
             await database.batch(...deleteBatch, ...insertBatch)
         })
 
-        console.log(`Upcoming payments sync (${type}) complete — ${json.data?.length ?? 0} records`)
     } catch (err) {
         console.warn(`Upcoming payments sync (${type}) failed, using cached data:`, err)
     }
 }
 
 // ─── Load from local DB ───────────────────────────────────────────────────────
+
+export function observeDashboardV2(month: number, year: number) {
+    return database
+        .get<DashboardOverviewV2>('dashboard_overview_v2')
+        .query(
+            Q.where('month', month),
+            Q.where('year', year)
+        )
+}
 
 export async function loadDashboardV2(
     month: number,
@@ -161,4 +171,6 @@ export async function loadUpcomingPayments(
             Q.sortBy('due_date', Q.asc),
         )
         .fetch()
+
+
 }

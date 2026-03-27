@@ -53,7 +53,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
         <PaperProvider theme={theme}>
-          <Stack screenOptions={{ headerShown: true, headerBackTitle: '' }} />
+          <Stack screenOptions={{ headerShown: false }} />
         </PaperProvider>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>

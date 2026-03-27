@@ -129,7 +129,6 @@ export async function syncParties(): Promise<void> {
             await database.batch(...deleteBatch, ...insertBatch)
         })
 
-        console.log(`Party sync complete — ${json.data.length} records`)
     } catch (err) {
         console.warn('Party sync failed, using cached data:', err)
     }

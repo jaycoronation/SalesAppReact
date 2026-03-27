@@ -4,13 +4,14 @@ import { syncPayments } from '@/Services/paymentSync'
 import { Colors } from '@/utils/colors'
 import { Q } from '@nozbe/watermelondb'
 import { Stack } from 'expo-router'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -120,6 +121,8 @@ export default function PaymentListScreen() {
   const [loadingMore, setLoadingMore] = useState(false)
   const pageRef = useRef(1)
   const allLoadedRef = useRef(false)
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [search, setSearch] = useState('')
 
   // ── Load a page from local DB ──────────────────────────────────────────────
   const loadPage = useCallback(async (page: number, replace: boolean) => {
@@ -149,6 +152,22 @@ export default function PaymentListScreen() {
 
     setEntries((prev) => (replace ? records : [...prev, ...records]))
   }, [])
+
+  const filtered = useMemo(() => {
+    let list = entries
+
+
+    // Search
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      list = list.filter(
+        (p) =>
+          p.partyName.toLowerCase().includes(q) || p.vchNo.toLowerCase().includes(q)
+      )
+    }
+
+    return list
+  }, [entries, search])
 
   // ── Sync then reload ───────────────────────────────────────────────────────
   const runSync = useCallback(async () => {
@@ -181,11 +200,13 @@ export default function PaymentListScreen() {
     setLoadingMore(false)
   }, [loadingMore, loadPage])
 
+
+
   // ── Loading state ──────────────────────────────────────────────────────────
   if (entries.length === 0 && syncing) {
     return (
       <View style={styles.emptyContainer}>
-        <Stack.Screen options={{ title: 'Payments' }} />
+        <Stack.Screen options={{ title: 'Payments', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
         <ActivityIndicator size="large" color={Colors.brandColor} />
         <Text style={styles.emptyText}>Loading payments…</Text>
         <Text style={styles.emptyHint}>Fetching from local database</Text>
@@ -196,7 +217,7 @@ export default function PaymentListScreen() {
   if (entries.length === 0 && !syncing) {
     return (
       <View style={styles.emptyContainer}>
-        <Stack.Screen options={{ title: 'Payments' }} />
+        <Stack.Screen options={{ title: 'Payments', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
         <Text style={styles.emptyText}>No payments found</Text>
         <Text style={styles.emptyHint}>{MONTH_NAMES[MONTH]} {YEAR}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={runSync}>
@@ -209,31 +230,70 @@ export default function PaymentListScreen() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Payments' }} />
+      <Stack.Screen
+        options={{
+          headerShown: true, headerBackButtonDisplayMode: "minimal",
+          title: 'Payments',
+          headerRight: () => (
+            <View style={{ marginRight: 12 }}>
+              <TouchableOpacity onPress={() => setIsSearchVisible(!isSearchVisible)}>
+                <Text style={styles.searchIcon}>🔍</Text>
+              </TouchableOpacity>
+            </View>
+          ),
+        }}
+      />
 
       {/* Sticky header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Payments</Text>
-          <Text style={styles.headerSub}>
-            {MONTH_NAMES[MONTH]} {YEAR} · {totalRecords} records
-          </Text>
+        {/* Title row */}
+        <View style={styles.headerTopRow}>
+          <View>
+            <Text style={styles.headerTitle}>Payments</Text>
+            <Text style={styles.headerSub}>
+              {MONTH_NAMES[MONTH]} {YEAR} · {totalRecords} records
+            </Text>
+          </View>
+          {syncing && !refreshing && (
+            <View style={styles.syncBadge}>
+              <ActivityIndicator size="small" color={Colors.brandColor} style={{ marginRight: 6 }} />
+              <Text style={styles.syncText}>Syncing…</Text>
+            </View>
+          )}
         </View>
-        {syncing && !refreshing && (
-          <View style={styles.syncBadge}>
-            <ActivityIndicator size="small" color={Colors.brandColor} style={{ marginRight: 6 }} />
-            <Text style={styles.syncText}>Syncing…</Text>
+
+        {/* Search bar — full width below title */}
+        {isSearchVisible && (
+          <View style={styles.searchWrap}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search name or voucher no."
+              placeholderTextColor="#9CA3AF"
+              value={search}
+              onChangeText={setSearch}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+            />
+            {!!search && (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <Text style={styles.clearBtn}>✕</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </View>
 
+      {/* Single FlatList — always uses `filtered` (equals `entries` when search is empty) */}
       <FlatList
-        data={entries}
+        data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <PaymentCard item={item} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        onEndReached={onEndReached}
+        keyboardShouldPersistTaps="handled"
+        onEndReached={search.trim() ? undefined : onEndReached}
         onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl
@@ -242,8 +302,18 @@ export default function PaymentListScreen() {
             tintColor={Colors.brandColor}
           />
         }
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>
+              {search.trim() ? 'No results found' : 'No payments found'}
+            </Text>
+            <Text style={styles.emptyHint}>
+              {search.trim() ? 'Try a different search term' : `${MONTH_NAMES[MONTH]} ${YEAR}`}
+            </Text>
+          </View>
+        }
         ListFooterComponent={
-          loadingMore ? (
+          loadingMore && !search.trim() ? (
             <View style={styles.footerLoader}>
               <ActivityIndicator size="small" color="#9CA3AF" />
             </View>
@@ -260,14 +330,24 @@ export default function PaymentListScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 10,
     backgroundColor: '#F3F4F6',
   },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+
+  searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, gap: 10, borderWidth: 0.5, borderColor: '#E5E7EB', marginBottom: 10 },
+  searchIcon: { fontSize: 14, marginLeft: 8 },
+  searchInput: { flex: 1, fontSize: 14, color: '#111827', padding: 0 },
+  clearBtn: { fontSize: 13, color: '#9CA3AF', paddingLeft: 8 },
+
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#111827', letterSpacing: -0.3 },
   headerSub: { fontSize: 13, color: '#6B7280', marginTop: 2 },
   syncBadge: {
@@ -284,6 +364,7 @@ const styles = StyleSheet.create({
   listContent: { paddingHorizontal: 16, paddingBottom: 16 },
   footerLoader: { paddingVertical: 20, alignItems: 'center' },
   footer: { height: 32 },
+  empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6', gap: 10 },
   emptyText: { fontSize: 16, fontWeight: '600', color: '#374151' },
   emptyHint: { fontSize: 13, color: '#9CA3AF' },
@@ -356,7 +437,7 @@ const cardStyles = StyleSheet.create({
   modeBadgeBank: { backgroundColor: Colors.brandColorLight, borderColor: Colors.brandColor },
   modeBadgeCash: { backgroundColor: '#FEF9C3', borderColor: '#FDE68A' },
   modeText: { fontSize: 11, fontWeight: '500' },
-  modeTextBank: { color: '#1D4ED8' },
+  modeTextBank: { color: Colors.brandColor },
   modeTextCash: { color: '#92400E' },
   bankAccount: {
     fontSize: 11,

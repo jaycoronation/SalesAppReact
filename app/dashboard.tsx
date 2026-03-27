@@ -51,12 +51,7 @@ export default function DashboardScreen() {
         getCurrentYear()
       );
 
-
-
       if (res.success && res.data.success === 1) {
-
-        console.log("Dashboard Overview Response:", res.data.data);
-
         setCounters(res.data.data || {});
         await loadDashboardMonthlyTrend();
       } else {
@@ -126,11 +121,7 @@ export default function DashboardScreen() {
         getCurrentYear()
       );
 
-
       if (res.success && res.data.success === 1) {
-
-        console.log("Dashboard Overview Response:", res.data.data);
-
         setTopParties(res.data.data || {});
       } else {
         AppUtils.showToast(res.data.message || "Failed to load dashboard");

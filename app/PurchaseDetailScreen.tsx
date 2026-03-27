@@ -108,11 +108,6 @@ export default function PurchaseDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
 
-  const load = useCallback(async () => {
-    const cached = await loadPurchaseDetail(purchaseId)
-    if (cached) setDetail(cached)
-  }, [purchaseId])
-
   const runSync = useCallback(async () => {
     setSyncing(true)
     await syncPurchaseDetail(purchaseId)
@@ -122,25 +117,36 @@ export default function PurchaseDetailScreen() {
   }, [purchaseId])
 
   useEffect(() => {
-    load().finally(() => setLoading(false))
-    runSync()
-  }, [load, runSync])
+    const init = async () => {
+      const cached = await loadPurchaseDetail(purchaseId)
+      if (cached) {
+        setDetail(cached)
+        setLoading(false)
+        runSync()           // refresh in background, don't await
+      } else {
+        await runSync()     // no cache — must wait for network
+        setLoading(false)   // only hide spinner after sync completes
+      }
+    }
+    init()
+  }, [purchaseId])
 
-  // ── Loading ────────────────────────────────────────────────────────────────
-  if (loading && !detail) {
+  // ── Spinner — no cache yet OR actively syncing with no data ───────────────
+  if (loading) {
     return (
       <View style={s.center}>
-        <Stack.Screen options={{ title: 'Purchase Detail' }} />
+        <Stack.Screen options={{ title: 'Purchase Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
         <ActivityIndicator size="large" color={Colors.brandColor} />
         <Text style={s.loadingText}>Loading…</Text>
       </View>
     )
   }
 
+  // ── Error — sync finished but still no data ───────────────────────────────
   if (!detail) {
     return (
       <View style={s.center}>
-        <Stack.Screen options={{ title: 'Purchase Detail' }} />
+        <Stack.Screen options={{ title: 'Purchase Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
         <Text style={s.errorText}>Record not found</Text>
         <TouchableOpacity style={s.retryBtn} onPress={runSync}>
           <Text style={s.retryText}>Retry</Text>
@@ -165,7 +171,7 @@ export default function PurchaseDetailScreen() {
       contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
     >
-      <Stack.Screen options={{ title: detail.voucherNo || 'Purchase Detail' }} />
+      <Stack.Screen options={{ title: detail.voucherNo || 'Purchase Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
 
       {/* ── Hero card ──────────────────────────────────────────────────────── */}
       <View style={s.heroCard}>
@@ -318,7 +324,7 @@ const s = StyleSheet.create({
   voucherNo: { fontSize: 13, fontWeight: '600', color: Colors.brandColor },
   voucherType: { fontSize: 12, color: '#9CA3AF' },
   categoryPill: { backgroundColor: Colors.brandColorLight, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 0.5, borderColor: Colors.brandColor },
-  categoryText: { fontSize: 11, fontWeight: '500', color: '#1D4ED8' },
+  categoryText: { fontSize: 11, fontWeight: '500', color: Colors.brandColor },
 
   datesRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 10, padding: 12, marginBottom: 14 },
   dateDivider: { width: 0.5, height: 28, backgroundColor: '#E5E7EB', marginHorizontal: 14 },

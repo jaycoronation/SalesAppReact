@@ -1,7 +1,9 @@
-import { appSchema, tableSchema } from '@nozbe/watermelondb'
+import { appSchema, tableSchema, } from '@nozbe/watermelondb'
+
+
 
 export default appSchema({
-  version: 1,
+  version: 4,
   tables: [
     tableSchema({
       name: 'dashboard_overview',
@@ -37,6 +39,7 @@ export default appSchema({
         { name: 'net_gst_liability', type: 'string' },
         { name: 'is_payable', type: 'string' },
       ],
+
     }),
 
     // ── NEW: rich dashboard overview v2 ──────────────────────────────────────
@@ -51,6 +54,9 @@ export default appSchema({
         { name: 'payables_aging_json', type: 'string' },
         { name: 'upcoming_payments_json', type: 'string' },
         { name: 'recent_invoices_json', type: 'string' },
+        { name: 'profit_loss_json', type: 'string' },
+        { name: 'stock_overview_json', type: 'string', isOptional: true },
+        { name: 'stock_grade_overview_json', type: 'string', isOptional: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],
@@ -79,7 +85,6 @@ export default appSchema({
         { name: 'updated_at', type: 'number' },
       ],
     }),
-
 
     // ── Top customers & vendors (party_type distinguishes them) ──────────
     tableSchema({
@@ -111,7 +116,6 @@ export default appSchema({
         { name: "updated_at", type: "number" },
       ],
     }),
-
 
     // ── New: purchase entries (paginated) ─────────────────────────────────────
     tableSchema({
@@ -282,8 +286,8 @@ export default appSchema({
         { name: 'party_type', type: 'string' },
         { name: 'gstin_uin', type: 'string' },
         { name: 'fiscal_year', type: 'string' },
-        { name: 'txn_date', type: 'number' },
-        { name: 'due_date', type: 'number' },
+        { name: 'txn_date', type: 'string' },
+        { name: 'due_date', type: 'string' },
         { name: 'voucher_no', type: 'string' },
         { name: 'voucher_type', type: 'string' },
         { name: 'particulars', type: 'string' },
@@ -350,6 +354,56 @@ export default appSchema({
       ],
     }),
 
+    // ── purchase register (aging drill-down) ──────────────────────────────────
+    tableSchema({
+      name: 'purchase_register_entries',
+      columns: [
+        { name: 'purchase_id', type: 'string' },
+        { name: 'party_id', type: 'string' },
+        { name: 'party_name', type: 'string' },
+        { name: 'gstin_uin', type: 'string' },
+        { name: 'voucher_no', type: 'string' },
+        { name: 'txn_date', type: 'string' },
+        { name: 'due_date', type: 'string' },
+        { name: 'gross_total', type: 'number' },
+        { name: 'amount_paid_out', type: 'number' },
+        { name: 'outstanding', type: 'number' },
+        { name: 'payment_status', type: 'string' },
+        { name: 'status_display', type: 'string' },
+        { name: 'is_overdue', type: 'string' },
+        { name: 'days_overdue', type: 'string' },
+        { name: 'days_until', type: 'string' },
+        { name: 'btwn_days', type: 'string', isIndexed: true },
+        { name: 'fiscal_year', type: 'string' },
+        { name: 'page', type: 'number' },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+      ],
+    }),
+
+    tableSchema({
+      name: 'sales_register_entries',    // new table
+      columns: [
+        { name: 'btwn_days', type: 'string' },
+        { name: 'fiscal_year', type: 'string' },
+        { name: 'sale_id', type: 'string' },
+        { name: 'voucher_no', type: 'string' },
+        { name: 'txn_date', type: 'string' },
+        { name: 'due_date', type: 'string' },
+        { name: 'party_name', type: 'string' },
+        { name: 'party_id', type: 'string' },
+        { name: 'gstin_uin', type: 'string' },
+        { name: 'gross_total', type: 'number' },
+        { name: 'amount_received', type: 'number' },
+        { name: 'outstanding', type: 'number' },
+        { name: 'payment_status', type: 'string' },
+        { name: 'status_display', type: 'string' },
+        { name: 'invoice_type', type: 'string' },
+        { name: 'is_overdue', type: 'string' },
+        { name: 'days_overdue', type: 'string' },
+        { name: 'days_until', type: 'string' },
+      ],
+    })
 
   ],
 })

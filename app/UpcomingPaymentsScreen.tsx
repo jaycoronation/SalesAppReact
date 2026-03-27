@@ -1,7 +1,7 @@
 import UpcomingPayment from '@/Database/models/Upcomingpayment'
 import { loadUpcomingPayments, syncUpcomingPayments } from '@/Services/DashboardV2Sync'
 import { Colors } from '@/utils/colors'
-import { router, Stack } from 'expo-router'
+import { router, Stack, useLocalSearchParams } from 'expo-router'
 import React, { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const FISCAL_YEAR = '2025-26'
@@ -105,6 +106,9 @@ export default function UpcomingPaymentsScreen() {
   const [syncing, setSyncing] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
+  const { tab } = useLocalSearchParams();
+
+
   const loadLocal = useCallback(async () => {
     const [od, up] = await Promise.all([
       loadUpcomingPayments(FISCAL_YEAR, 'overdue'),
@@ -123,6 +127,9 @@ export default function UpcomingPaymentsScreen() {
   }, [loadLocal])
 
   useEffect(() => {
+    if (tab === 'overdue' || tab === 'upcoming') {
+      setActiveTab(tab);
+    }
     loadLocal()
     setSyncing(true)
     runSync().finally(() => setSyncing(false))
@@ -141,7 +148,7 @@ export default function UpcomingPaymentsScreen() {
   if (overdueList.length === 0 && upcomingList.length === 0 && syncing) {
     return (
       <View style={s.center}>
-        <Stack.Screen options={{ title: 'Upcoming Payments' }} />
+        <Stack.Screen options={{ title: 'Upcoming Payments', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
         <ActivityIndicator size="large" color={Colors.brandColor} />
         <Text style={s.loadingText}>Loading…</Text>
       </View>
@@ -151,7 +158,7 @@ export default function UpcomingPaymentsScreen() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={s.container}>
-      <Stack.Screen options={{ title: 'Upcoming Payments' }} />
+      <Stack.Screen options={{ title: 'Upcoming Payments', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
 
       {/* ── Sticky header ─────────────────────────────────────────────────── */}
       <View style={s.header}>

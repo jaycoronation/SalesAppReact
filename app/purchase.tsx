@@ -183,7 +183,7 @@ export default function PurchaseListScreen() {
     if (entries.length === 0 && !syncing) {
         return (
             <View style={styles.emptyContainer}>
-                <Stack.Screen options={{ title: 'Purchases' }} />
+                <Stack.Screen options={{ title: 'Purchases', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
                 <Text style={styles.emptyText}>No purchases found</Text>
                 <Text style={styles.emptyHint}>
                     {MONTH_NAMES[MONTH]} {YEAR}
@@ -198,7 +198,7 @@ export default function PurchaseListScreen() {
     if (entries.length === 0 && syncing) {
         return (
             <View style={styles.emptyContainer}>
-                <Stack.Screen options={{ title: 'Purchases' }} />
+                <Stack.Screen options={{ title: 'Purchases', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
                 <ActivityIndicator size="large" color={Colors.brandColor} />
                 <Text style={styles.emptyText}>Loading purchases…</Text>
                 <Text style={styles.emptyHint}>Fetching from local database</Text>
@@ -209,7 +209,7 @@ export default function PurchaseListScreen() {
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <View style={styles.container}>
-            <Stack.Screen options={{ title: 'Purchases' }} />
+            <Stack.Screen options={{ title: 'Purchases', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
 
             {/* Sticky header */}
             <View style={styles.header}>

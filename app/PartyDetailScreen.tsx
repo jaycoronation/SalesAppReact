@@ -196,7 +196,7 @@ export default function PartyDetailScreen() {
   if (loading && !detail) {
     return (
       <View style={s.center}>
-        <Stack.Screen options={{ title: 'Party Detail' }} />
+        <Stack.Screen options={{ title: 'Party Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
         <ActivityIndicator size="large" color={Colors.brandColor} />
         <Text style={s.loadingText}>Loading…</Text>
       </View>
@@ -206,7 +206,7 @@ export default function PartyDetailScreen() {
   if (!detail) {
     return (
       <View style={s.center}>
-        <Stack.Screen options={{ title: 'Party Detail' }} />
+        <Stack.Screen options={{ title: 'Party Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
         <Text style={s.errorText}>Party not found</Text>
         <TouchableOpacity style={s.retryBtn} onPress={runSync}>
           <Text style={s.retryText}>Retry</Text>
@@ -230,7 +230,7 @@ export default function PartyDetailScreen() {
       contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
     >
-      <Stack.Screen options={{ title: detail.partyName }} />
+      <Stack.Screen options={{ title: detail.partyName, headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
 
       {/* ── Hero card ──────────────────────────────────────────────────────── */}
       <View style={s.heroCard}>

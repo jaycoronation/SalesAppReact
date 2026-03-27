@@ -1,10 +1,13 @@
 import DashboardOverviewV2, {
   AgingBucket,
   RecentInvoiceItem,
+  StockGradeItem,
+  StockOverview,
   UpcomingPaymentItem,
 } from '@/Database/models/dashboardoverview';
 import {
   loadDashboardV2,
+  observeDashboardV2,
   syncDashboardV2,
   syncUpcomingPayments,
 } from '@/Services/DashboardV2Sync';
@@ -24,6 +27,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MONTH = 2
@@ -68,11 +72,37 @@ function statusBadgeStyle(status: string) {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SectionHeader({
-  title, actionLabel, onAction,
-}: { title: string; actionLabel?: string; onAction?: () => void }) {
+  title, actionLabel, onAction, badge, badgeType = 'neutral',
+}: {
+  title: string
+  actionLabel?: string
+  onAction?: () => void
+  badge?: string
+  badgeType?: 'profit' | 'loss' | 'neutral'
+}) {
   return (
     <View style={s.sectionHeader}>
-      <Text style={s.sectionTitle}>{title}</Text>
+      {/* Left: title + badge */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text style={s.sectionTitle}>{title}</Text>
+        {badge !== undefined && (
+          <View style={[
+            s.badge,
+            badgeType === 'profit' && s.badgeProfit,
+            badgeType === 'loss' && s.badgeLoss,
+          ]}>
+            <Text style={[
+              s.badgeText,
+              badgeType === 'profit' && s.badgeTextProfit,
+              badgeType === 'loss' && s.badgeTextLoss,
+            ]}>
+              {badge}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Right: action */}
       {actionLabel && (
         <TouchableOpacity onPress={onAction} style={s.sectionAction}>
           <Text style={s.sectionActionText}>{actionLabel}</Text>
@@ -101,36 +131,102 @@ function KpiCard({
   )
 }
 
-function AgingBar({ buckets }: { buckets: Record<string, AgingBucket> }) {
+// function AgingBar({ buckets, title }: { buckets: Record<string, AgingBucket>, title: string }) {
+//   const order = ['paid', 'd0_7', 'd7_15', 'd15_30', 'over_30']
+//   const colors = ['#059669', '#2563EB', '#D97706', '#EA580C', '#DC2626']
+//   const total = order.reduce((s, k) => s + parseFloat(buckets[k]?.amount || '0'), 0)
+//   if (!total) return null
+
+//   // Override the first bucket label based on context
+//   const firstBucketLabel = title === 'Receivables' ? 'Received' : 'Paid'
+
+//   return (
+//     <View style={s.agingBarWrap}>
+//       <View style={s.agingBar}>
+//         {order.map((k, i) => {
+//           const pct = (parseFloat(buckets[k]?.amount || '0') / total) * 100
+//           if (pct < 1) return null
+//           return (
+//             <View
+//               key={k}
+//               style={[s.agingSegment, { width: `${pct}%` as any, backgroundColor: colors[i] }]}
+//             />
+//           )
+//         })}
+//       </View>
+//       <View style={s.agingLegend}>
+//         {order.map((k, i) => {
+//           const bucket = buckets[k]
+//           if (!bucket || parseFloat(bucket.amount) === 0) return null
+//           return (
+//             <View key={k} style={s.agingLegendItem}>
+//               <View style={[s.agingDot, { backgroundColor: colors[i] }]} />
+//               <Text style={s.agingLegendLabel}>
+//                 {i === 0 ? firstBucketLabel : bucket.label} ({bucket.count})
+//               </Text>
+//               <Text style={s.agingLegendVal}>{fmt(bucket.amount)}</Text>
+//             </View>
+//           )
+//         })}
+//       </View>
+//     </View>
+//   )
+// }
+
+function AgingBar({
+  buckets,
+  title,
+  onBucketPress,
+}: {
+  buckets: Record<string, AgingBucket>
+  title?: string
+  onBucketPress?: (bucketKey: string) => void
+}) {
   const order = ['paid', 'd0_7', 'd7_15', 'd15_30', 'over_30']
   const colors = ['#059669', '#2563EB', '#D97706', '#EA580C', '#DC2626']
   const total = order.reduce((s, k) => s + parseFloat(buckets[k]?.amount || '0'), 0)
   if (!total) return null
 
+  const firstLabel = title === 'Receivables' ? 'Received' : 'Paid'
+
   return (
     <View style={s.agingBarWrap}>
+      {/* Segmented bar — each segment tappable */}
       <View style={s.agingBar}>
         {order.map((k, i) => {
           const pct = (parseFloat(buckets[k]?.amount || '0') / total) * 100
           if (pct < 1) return null
           return (
-            <View
+            <TouchableOpacity
               key={k}
+              activeOpacity={onBucketPress ? 0.65 : 1}
+              onPress={() => onBucketPress?.(k)}
               style={[s.agingSegment, { width: `${pct}%` as any, backgroundColor: colors[i] }]}
             />
           )
         })}
       </View>
+      {/* Legend rows — also tappable */}
       <View style={s.agingLegend}>
         {order.map((k, i) => {
           const bucket = buckets[k]
           if (!bucket || parseFloat(bucket.amount) === 0) return null
           return (
-            <View key={k} style={s.agingLegendItem}>
+            <TouchableOpacity
+              key={k}
+              activeOpacity={onBucketPress ? 0.65 : 1}
+              onPress={() => onBucketPress?.(k)}
+              style={s.agingLegendItem}
+            >
               <View style={[s.agingDot, { backgroundColor: colors[i] }]} />
-              <Text style={s.agingLegendLabel}>{bucket.label}</Text>
+              <Text style={s.agingLegendLabel}>
+                {i === 0 ? firstLabel : bucket.label} ({bucket.count})
+              </Text>
               <Text style={s.agingLegendVal}>{fmt(bucket.amount)}</Text>
-            </View>
+              {onBucketPress && (
+                <Text style={[s.agingChevron, { color: colors[i] }]}>›</Text>
+              )}
+            </TouchableOpacity>
           )
         })}
       </View>
@@ -195,6 +291,134 @@ function RecentInvoiceRow({ item }: { item: RecentInvoiceItem }) {
   )
 }
 
+// ─── Stock Overview Table ─────────────────────────────────────────────────────
+
+function StockOverviewCard({ stock }: { stock: StockOverview }) {
+  const rows: { label: string; key: keyof StockOverview; color?: string }[] = [
+    { label: 'Opening', key: 'opening' },
+    { label: 'Inwards', key: 'inwards', color: '#059669' },
+    { label: 'Outwards', key: 'outwards', color: '#DC2626' },
+    { label: 'Net', key: 'total' },
+  ]
+
+  function fmtQty(v: string) {
+    const n = parseFloat(v)
+    if (!v || isNaN(n)) return '—'
+    return n.toLocaleString('en-IN', { maximumFractionDigits: 2 })
+  }
+
+  return (
+    <View style={st.tableCard}>
+      {/* Header row */}
+      <View style={[st.tableRow, st.tableHead]}>
+        <Text style={[st.tableCell, st.tableHeadText, { flex: 1.4 }]}>Movement</Text>
+        <Text style={[st.tableCell, st.tableHeadText, st.right]}>Qty</Text>
+        <Text style={[st.tableCell, st.tableHeadText, st.right]}>Avg ₹</Text>
+        <Text style={[st.tableCell, st.tableHeadText, st.right]}>Value</Text>
+      </View>
+
+      {rows.map(({ label, key, color }, i) => {
+        const r = stock?.[key]
+        const isLast = i === rows.length - 1
+        const qty = fmtQty(r?.qty ?? '')
+        const qtyNum = parseFloat(r?.qty ?? '0')
+        const qtyColor = key === 'total'
+          ? (qtyNum < 0 ? '#DC2626' : '#059669')
+          : color
+
+        return (
+          <View
+            key={label}
+            style={[
+              st.tableRow,
+              isLast && st.tableRowLast,
+              key === 'total' && st.tableRowTotal,
+            ]}
+          >
+            <Text style={[st.tableCell, st.labelCell, { flex: 1.4 }]}>{label}</Text>
+            <Text style={[st.tableCell, st.right, qtyColor ? { color: qtyColor, fontWeight: '600' } : {}]}>
+              {qty}
+            </Text>
+            <Text style={[st.tableCell, st.right]}>
+              {r?.avg ? `₹${parseFloat(r.avg).toFixed(2)}` : '—'}
+            </Text>
+            <Text style={[st.tableCell, st.right, { fontWeight: isLast ? '700' : '500' }]}>
+              {r?.value ? fmt(r.value) : '—'}
+            </Text>
+          </View>
+        )
+      })}
+    </View>
+  )
+}
+
+// ─── Stock Grade Table ────────────────────────────────────────────────────────
+
+function StockGradeTable({ grades }: { grades: StockGradeItem[] }) {
+  // Separate rows from the TOTAL footer row
+  const dataRows = grades.filter(g => g.details !== 'TOTAL')
+  const totalRow = grades.find(g => g.details === 'TOTAL')
+
+  function fmtQty(v: string) {
+    const n = parseFloat(v)
+    if (!v || isNaN(n)) return '—'
+    return n.toLocaleString('en-IN', { maximumFractionDigits: 2 })
+  }
+
+  const gradeColors: Record<string, string> = {
+    'NA': '#6B7280',
+    '202': '#2563EB',
+    '304': '#059669',
+    '316': '#9333EA',
+  }
+
+  return (
+    <View style={st.tableCard}>
+      {/* Header */}
+      <View style={[st.tableRow, st.tableHead]}>
+        <Text style={[st.tableCell, st.tableHeadText, { flex: 0.7 }]}>Grade</Text>
+        <Text style={[st.tableCell, st.tableHeadText, st.right]}>Qty</Text>
+        <Text style={[st.tableCell, st.tableHeadText, st.right]}>Avg ₹</Text>
+        <Text style={[st.tableCell, st.tableHeadText, st.right]}>Value</Text>
+      </View>
+
+      {dataRows.map((g, i) => (
+        <View
+          key={`${g.grade}-${i}`}
+          style={[st.tableRow, i === dataRows.length - 1 && !totalRow && st.tableRowLast]}
+        >
+          <View style={[{ flex: 0.7 }, st.tableCell]}>
+            <View style={[st.gradePill, { backgroundColor: (gradeColors[g.grade] ?? '#6B7280') + '18' }]}>
+              <Text style={[st.gradePillText, { color: gradeColors[g.grade] ?? '#6B7280' }]}>
+                {g.grade || 'NA'}
+              </Text>
+            </View>
+          </View>
+          <Text style={[st.tableCell, st.right]}>{fmtQty(g.qty)}</Text>
+          <Text style={[st.tableCell, st.right]}>
+            {g.avg ? `₹${parseFloat(g.avg).toFixed(2)}` : '—'}
+          </Text>
+          <Text style={[st.tableCell, st.right, { fontWeight: '500' }]}>{fmt(g.value)}</Text>
+        </View>
+      ))}
+
+      {/* Total footer */}
+      {totalRow && (
+        <View style={[st.tableRow, st.tableRowTotal, st.tableRowLast]}>
+          <Text style={[st.tableCell, { flex: 0.7, fontWeight: '700', color: '#111827' }]}>Total</Text>
+          <Text style={[st.tableCell, st.right, { fontWeight: '700', color: '#111827' }]}>
+            {fmtQty(totalRow.qty)}
+          </Text>
+          <Text style={[st.tableCell, st.right]}>—</Text>
+          <Text style={[st.tableCell, st.right, { fontWeight: '700', color: '#111827' }]}>
+            {fmt(totalRow.value)}
+          </Text>
+        </View>
+      )}
+    </View>
+  )
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function DashboardScreen() {
@@ -202,11 +426,18 @@ export default function DashboardScreen() {
   const [syncing, setSyncing] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [logoutVisible, setLogoutVisible] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true)
 
   const loadLocal = useCallback(async () => {
     const cached = await loadDashboardV2(MONTH, YEAR)
-    if (cached) setData(cached)
+
+    if (cached) {
+      setData(cached)
+    }
+
+    setInitialLoading(false) // important
   }, [])
+
 
   const runSync = useCallback(async () => {
     await Promise.all([
@@ -218,10 +449,22 @@ export default function DashboardScreen() {
   }, [loadLocal])
 
   useEffect(() => {
-    loadLocal()
+    const query = observeDashboardV2(MONTH, YEAR)
+
+    const subscription = query.observe().subscribe((records) => {
+      if (records.length > 0) {
+        setData(records[0])
+      }
+    })
+
+    // run sync in background
     setSyncing(true)
     runSync().finally(() => setSyncing(false))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    return () => subscription.unsubscribe()
+
+  }, [])
+
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
@@ -254,6 +497,14 @@ export default function DashboardScreen() {
   const overdueList = data.upcomingOverdue.slice(0, 5)
   const upcomingList = data.upcomingUpcoming.slice(0, 5)
   const recentInvoices = data.recentInvoices.slice(0, 5)
+  const pl = data.profitLoss
+  const isLoss = data.profitLoss.is_profit === 'No'
+  const overdueCount = data.totalOverdueCount;
+  const overdueAmount = data.totalOverdueAmount;
+  const upccomingCount = data.totalUpcomingCount;
+  const upccomingAmount = data.totalUpcomingAmount;
+  const stockOverview = data.stockOverview
+  const stockGrades = data.stockGradeOverview
 
   const gstIsRefund = kpi?.gst?.is_refund === '1'
   const netGst = parseFloat(kpi?.gst?.net_payable || '0')
@@ -270,16 +521,19 @@ export default function DashboardScreen() {
     >
       <Stack.Screen
         options={{
+          headerShown: true,
           title: 'Dashboard',
           headerBackVisible: false,
           headerRight: () => (
-            <TouchableOpacity
-              onPress={() => setLogoutVisible(true)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={{ alignItems: 'center', justifyContent: 'center', marginLeft: 8 }}
-            >
-              <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
-            </TouchableOpacity>
+            <View style={{ marginRight: 12 }}>
+              <TouchableOpacity
+                onPress={() => setLogoutVisible(true)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ alignItems: 'center', justifyContent: 'center', marginLeft: 8 }}
+              >
+                <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
+              </TouchableOpacity>
+            </View>
           ),
         }}
       />
@@ -386,6 +640,30 @@ export default function DashboardScreen() {
         </View>
       </View>
 
+      {/* ── Profit & Loss ────────────────────────────────────────────── */}
+      <View style={s.card}>
+        <SectionHeader title="Profit & Loss" badge={pl?.is_profit === 'Yes' ? '▲ Profit' : '▼ Loss'}
+          badgeType={pl?.is_profit === 'Yes' ? 'profit' : 'loss'} />
+        <View style={s.netRow}>
+          <View style={s.netBlock}>
+            <Text style={s.netLabel}>Gross Sales</Text>
+            <Text style={[s.netValue, s.green]}>{fmt(pl?.gross_sales)}</Text>
+          </View>
+          <View style={s.netDivider} />
+          <View style={s.netBlock}>
+            <Text style={s.netLabel}>Gross Purchase</Text>
+            <Text style={[s.netValue, s.red]}>{fmt(pl?.gross_purchase)}</Text>
+          </View>
+          <View style={s.netDivider} />
+          <View style={s.netBlock}>
+            <Text style={s.netLabel}>{pl?.is_profit === 'Yes' ? 'Net Profit' : 'Net Loss'}</Text>
+            <Text style={[s.netValue, pl?.is_profit === 'Yes' ? s.green : s.red]}>
+              {fmt(pl?.net)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
       {/* ── Receivables Aging ────────────────────────────────────────────── */}
       <View style={s.card}>
         <SectionHeader
@@ -395,26 +673,71 @@ export default function DashboardScreen() {
           <Text style={s.agingTotal}>{fmt(recAging?.total_outstanding)}</Text>
           <Text style={s.agingCount}>{recAging?.total_count} invoices</Text>
         </View>
-        {recAging?.buckets && <AgingBar buckets={recAging.buckets} />}
+        {recAging?.buckets && <AgingBar buckets={recAging.buckets} title="Receivables" />}
       </View>
 
       {/* ── Payables Aging ───────────────────────────────────────────────── */}
       <View style={s.card}>
         <SectionHeader
           title="Payables"
+
         />
         <View style={s.agingMeta}>
           <Text style={[s.agingTotal, s.red]}>{fmt(payAging?.total_outstanding)}</Text>
           <Text style={s.agingCount}>{payAging?.total_count} bills</Text>
         </View>
-        {payAging?.buckets && <AgingBar buckets={payAging.buckets} />}
+        {payAging?.buckets && (
+          <AgingBar
+            buckets={payAging.buckets}
+            title="Payables"
+            onBucketPress={(bucketKey) =>
+              router.push({
+                pathname: '/PurchaseRegisterScreen',
+                params: { btwnDays: bucketKey, fiscalYear: FISCAL_YEAR },
+              })
+            }
+          />
+        )}
+      </View>
+
+      {/* ── Stock Overview ───────────────────────────────────────────────── */}
+      {stockOverview?.inwards && (
+        <View style={s.card}>
+          <SectionHeader title="Stock Overview" />
+          <StockOverviewCard stock={stockOverview} />
+        </View>
+      )}
+
+      {/* ── Sales by Grade ───────────────────────────────────────────────── */}
+      {stockGrades?.length > 0 && (
+        <View style={s.card}>
+          <SectionHeader title="Sales by Grade" />
+          <StockGradeTable grades={stockGrades} />
+        </View>
+      )}
+
+      <View style={s.kpiRow}>
+        <KpiCard
+          label="Overdue Payments"
+          value={fmt(overdueAmount)}
+          sub={`${overdueCount} invoices`}
+          accent="red"
+          onAction={() => router.push({ pathname: '/UpcomingPaymentsScreen', params: { tab: 'overdue' } })}
+        />
+        <KpiCard
+          label="Upcoming Payments"
+          value={fmt(upccomingAmount)}
+          sub={`${upccomingCount} invoices`}
+          accent="red"
+          onAction={() => router.push({ pathname: '/UpcomingPaymentsScreen', params: { tab: 'upcoming' } })}
+        />
       </View>
 
       {/* ── Overdue Payments ─────────────────────────────────────────────── */}
-      {overdueList.length > 0 && (
+      {/* {overdueList.length > 0 && (
         <View style={s.card}>
           <SectionHeader
-            title={`Overdue payments (${overdueList.length})`}
+            title={`Overdue payments (${data.upcomingOverdue.length})`}
             actionLabel="View All"
             onAction={() => router.push('/UpcomingPaymentsScreen')}
           />
@@ -422,13 +745,13 @@ export default function DashboardScreen() {
             <UpcomingRow key={item.purchase_id} item={item} />
           ))}
         </View>
-      )}
+      )} */}
 
       {/* ── Upcoming Payments ────────────────────────────────────────────── */}
-      {upcomingList.length > 0 && (
+      {/* {upcomingList.length > 0 && (
         <View style={s.card}>
           <SectionHeader
-            title={`Upcoming payments (${upcomingList.length})`}
+            title={`Upcoming payments (${data.upcomingUpcoming.length})`}
             actionLabel="View All"
             onAction={() => router.push('/UpcomingPaymentsScreen')}
           />
@@ -436,7 +759,7 @@ export default function DashboardScreen() {
             <UpcomingRow key={item.purchase_id} item={item} />
           ))}
         </View>
-      )}
+      )} */}
 
       {/* ── Recent Invoices ──────────────────────────────────────────────── */}
       {recentInvoices.length > 0 && (
@@ -480,7 +803,7 @@ const s = StyleSheet.create({
   content: { padding: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, backgroundColor: '#F3F4F6' },
   loadingText: { fontSize: 14, color: '#6B7280' },
-  footer: { height: 32 },
+  footer: { height: 82 },
 
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
@@ -527,6 +850,7 @@ const s = StyleSheet.create({
   agingDot: { width: 8, height: 8, borderRadius: 4 },
   agingLegendLabel: { fontSize: 12, color: '#6B7280', flex: 1 },
   agingLegendVal: { fontSize: 12, fontWeight: '500', color: '#111827' },
+  agingChevron: { fontSize: 16, fontWeight: '600', marginLeft: 4 },
 
   // Upcoming / overdue rows
   upcomingRow: { flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 8, marginBottom: 6, borderWidth: 0.5, gap: 8 },
@@ -588,5 +912,92 @@ const s = StyleSheet.create({
     fontSize: 16,
     fontWeight: '400',
     color: '#000',
+  },
+
+  // Badge
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+  },
+  badgeProfit: {
+    backgroundColor: '#D1FAE5',
+    borderColor: '#6EE7B7',
+  },
+  badgeLoss: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FECACA',
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  badgeTextProfit: {
+    color: '#065F46',
+  },
+  badgeTextLoss: {
+    color: '#991B1B',
+  },
+})
+
+// ─── Table styles (stock overview + grade) ────────────────────────────────────
+const st = StyleSheet.create({
+  tableCard: {
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F3F4F6',
+    gap: 4,
+  },
+  tableRowLast: {
+    borderBottomWidth: 0,
+  },
+  tableRowTotal: {
+    backgroundColor: '#F9FAFB',
+  },
+  tableHead: {
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 7,
+  },
+  tableHeadText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  tableCell: {
+    flex: 1,
+    fontSize: 12,
+    color: '#374151',
+  },
+  labelCell: {
+    fontWeight: '500',
+    color: '#111827',
+  },
+  right: {
+    textAlign: 'right',
+  },
+  gradePill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  gradePillText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 })

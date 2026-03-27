@@ -2,7 +2,7 @@ import SaleDetail, { LineItem } from '@/Database/models/SalesDetail'
 import { loadSaleDetail, syncSaleDetail } from '@/Services/Saledetailsync'
 import { Colors } from '@/utils/colors'
 import { Stack, useLocalSearchParams } from 'expo-router'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   ScrollView,
@@ -107,31 +107,55 @@ export default function SaleDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
 
-  const load = useCallback(async () => {
-
-    console.log("saleId =====", saleId);
-    const cached = await loadSaleDetail(saleId)
-    if (cached) setDetail(cached)
-  }, [saleId])
-
-  const runSync = useCallback(async () => {
+  const doSync = async (id: string) => {
     setSyncing(true)
-    await syncSaleDetail(saleId)
-    const fresh = await loadSaleDetail(saleId)
-    if (fresh) setDetail(fresh)
-    setSyncing(false)
-  }, [saleId])
+    try {
+      await syncSaleDetail(id)
+      const fresh = await loadSaleDetail(id)
+      if (fresh) setDetail(fresh)
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   useEffect(() => {
-    load().finally(() => setLoading(false))
-    runSync()
-  }, [load, runSync])
+    let cancelled = false
+
+    const init = async () => {
+      const cached = await loadSaleDetail(saleId)
+
+      if (cancelled) return
+
+      if (cached) {
+        setDetail(cached)
+        setLoading(false)
+        doSync(saleId)
+      } else {
+        setSyncing(true)
+        try {
+          await syncSaleDetail(saleId)
+          if (cancelled) return
+          const fresh = await loadSaleDetail(saleId)
+          if (fresh) setDetail(fresh)
+        } finally {
+          if (!cancelled) {
+            setSyncing(false)
+            setLoading(false)
+          }
+        }
+      }
+    }
+
+    init()
+
+    return () => { cancelled = true }
+  }, [saleId])
 
   // ── Loading ────────────────────────────────────────────────────────────────
-  if (loading && !detail) {
+  if (loading) {
     return (
       <View style={s.center}>
-        <Stack.Screen options={{ title: 'Sale Detail' }} />
+        <Stack.Screen options={{ title: 'Sale Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
         <ActivityIndicator size="large" color={Colors.brandColor} />
         <Text style={s.loadingText}>Loading…</Text>
       </View>
@@ -141,9 +165,9 @@ export default function SaleDetailScreen() {
   if (!detail) {
     return (
       <View style={s.center}>
-        <Stack.Screen options={{ title: 'Sale Detail' }} />
+        <Stack.Screen options={{ title: 'Sale Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
         <Text style={s.errorText}>Record not found</Text>
-        <TouchableOpacity style={s.retryBtn} onPress={runSync}>
+        <TouchableOpacity style={s.retryBtn} onPress={() => doSync(saleId)}>
           <Text style={s.retryText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -164,7 +188,7 @@ export default function SaleDetailScreen() {
       contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
     >
-      <Stack.Screen options={{ title: detail.voucherNo || 'Sale Detail' }} />
+      <Stack.Screen options={{ title: detail.voucherNo || 'Sale Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
 
       {/* ── Hero card ──────────────────────────────────────────────────────── */}
       <View style={s.heroCard}>

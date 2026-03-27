@@ -3,6 +3,35 @@ import { date, field, readonly } from '@nozbe/watermelondb/decorators'
 
 // ─── Nested types ─────────────────────────────────────────────────────────────
 
+
+export interface StockOverviewRow {
+    qty: string
+    value: string
+    avg: string
+}
+
+export interface StockOverview {
+    opening: StockOverviewRow
+    inwards: StockOverviewRow
+    outwards: StockOverviewRow
+    total: StockOverviewRow
+}
+
+export interface StockGradeItem {
+    details: string
+    grade: string
+    qty: string
+    avg: string
+    value: string
+}
+
+export interface ProfitLoss {
+    gross_sales: string
+    gross_purchase: string
+    net: string
+    is_profit: string
+}
+
 export interface KpiSales {
     total_invoices: string
     total_sales: string
@@ -102,11 +131,24 @@ export default class DashboardOverviewV2 extends Model {
     @field('payables_aging_json') payablesAgingJson!: string
     @field('upcoming_payments_json') upcomingPaymentsJson!: string
     @field('recent_invoices_json') recentInvoicesJson!: string
+    @field('profit_loss_json') profitLossJson!: string
+
+
+    @field('stock_overview_json') stockOverviewJson!: string
+    @field('stock_grade_overview_json') stockGradeOverviewJson!: string
 
     @readonly @date('created_at') createdAt!: Date
     @readonly @date('updated_at') updatedAt!: Date
 
     // ── Parsed getters ─────────────────────────────────────────────────────────
+    get stockOverview(): StockOverview {
+        try { return JSON.parse(this.stockOverviewJson || '{}') } catch { return {} as any }
+    }
+
+    get stockGradeOverview(): StockGradeItem[] {
+        try { return JSON.parse(this.stockGradeOverviewJson || '[]') } catch { return [] }
+    }
+
     get kpi(): { sales: KpiSales; purchases: KpiPurchases; gst: KpiGst; tds: KpiTds } {
         try { return JSON.parse(this.kpiJson || '{}') } catch { return {} as any }
     }
@@ -137,7 +179,41 @@ export default class DashboardOverviewV2 extends Model {
         } catch { return [] }
     }
 
+    get totalOverdueCount(): string {
+        try {
+            const d = JSON.parse(this.upcomingPaymentsJson || '{}')
+            return d.total_overdue ?? ''
+        } catch { return '' }
+    }
+
+    get totalOverdueAmount(): string {
+        try {
+            const d = JSON.parse(this.upcomingPaymentsJson || '{}')
+            return d.total_overdue_amount ?? ''
+        } catch { return '' }
+    }
+
+    get totalUpcomingCount(): string {
+        try {
+            const d = JSON.parse(this.upcomingPaymentsJson || '{}')
+            return d.total_upcoming ?? ''
+        } catch { return '' }
+    }
+
+    get totalUpcomingAmount(): string {
+        try {
+            const d = JSON.parse(this.upcomingPaymentsJson || '{}')
+            return d.total_upcoming_amount ?? ''
+        } catch { return '' }
+    }
+
     get recentInvoices(): RecentInvoiceItem[] {
         try { return JSON.parse(this.recentInvoicesJson || '[]') } catch { return [] }
     }
+
+    get profitLoss(): ProfitLoss {
+        try { return JSON.parse(this.profitLossJson || '{}') } catch { return {} as any }
+    }
+
+
 }

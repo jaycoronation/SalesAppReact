@@ -1,27 +1,27 @@
-import { Database } from "@nozbe/watermelondb"
-import LokiJSAdapter from "@nozbe/watermelondb/adapters/lokijs"
-import DashboardOverview from "./DashboardOverview"
-import DashboardOverviewV2 from './models/dashboardoverview'
-import MonthlyTrend from "./models/MonthlyTrend"
-import Party from "./models/Party"
-import PartyDetail from "./models/Partydetails"
-import PaymentEntry from "./models/PaymentEntry"
-import PurchaseDetail from "./models/Purchasedetail"
-import PurchaseEntry from "./models/PurchaseEntry"
-import SalesDetail from "./models/SalesDetail"
-import SaleEntry from "./models/SalesEntry"
-import TopParty from "./models/TopParty"
-import UpcomingPayment from './models/Upcomingpayment'
-import schema from "./schema"
+import { Database } from "@nozbe/watermelondb";
+import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
+import DashboardOverview from "./DashboardOverview";
+import migrations from './migrations'; // ← import
+import DashboardOverviewV2 from './models/dashboardoverview';
+import MonthlyTrend from "./models/MonthlyTrend";
+import Party from "./models/Party";
+import PartyDetail from "./models/Partydetails";
+import PaymentEntry from "./models/PaymentEntry";
+import PurchaseDetail from "./models/Purchasedetail";
+import PurchaseEntry from "./models/PurchaseEntry";
+import PurchaseRegisterEntry from './models/Purchaseregisterentry';
+import SalesDetail from "./models/SalesDetail";
+import SaleEntry from "./models/SalesEntry";
+import SalesRegisterEntry from './models/SalesRegisterEntry';
+import TopParty from "./models/TopParty";
+import UpcomingPayment from './models/Upcomingpayment';
+import schema from "./schema";
 
-// LokiJS adapter — pure JavaScript, no native linking required.
-// Works with Expo Go (managed workflow) out of the box.
-// For production with a custom dev client, swap this for expo-sqlite adapter.
-const adapter = new LokiJSAdapter({
+
+const adapter = new SQLiteAdapter({
   schema,
+  migrations,
   dbName: "SalesAppDB",
-  useWebWorker: false,   // must be false in React Native
-  useIncrementalIndexedDB: false,
   onSetUpError: (error: Error) => {
     console.error("WatermelonDB setup error:", error)
   },
@@ -36,6 +36,8 @@ export const database = new Database({
     TopParty,
     PurchaseEntry,
     PurchaseDetail,
+    PurchaseRegisterEntry,
+    SalesRegisterEntry,
     SaleEntry,
     SalesDetail,
     PaymentEntry,
