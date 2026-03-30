@@ -107,6 +107,8 @@ async function syncPage(
             }),
         )
 
+        console.log('insertBatch', insertBatch)
+
         await database.batch(...deleteBatch, ...insertBatch)
     })
 

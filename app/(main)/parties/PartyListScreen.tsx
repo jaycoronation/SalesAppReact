@@ -245,7 +245,7 @@ function PartyCard({ item }: { item: Party }) {
       style={cardStyles.card}
       onPress={() =>
         router.push({
-          pathname: '/PartyDetailScreen',
+          pathname: '../../parties/PartyDetailScreen',
           params: { partyId: item.partyId },
         })
       }
@@ -414,9 +414,11 @@ export default function PartyListScreen() {
           title: 'Parties',
           headerBackButtonDisplayMode: "minimal",
           headerRight: () => (
-            <TouchableOpacity onPress={() => setIsSearchVisible(!isSearchVisible)}>
-              <Text style={s.searchIcon}>🔍</Text>
-            </TouchableOpacity>
+            <View style={{ marginRight: 12 }}>
+              <TouchableOpacity onPress={() => setIsSearchVisible(!isSearchVisible)}>
+                <Text style={s.searchIcon}>🔍</Text>
+              </TouchableOpacity>
+            </View>
           ),
         }}
       />

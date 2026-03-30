@@ -4,8 +4,8 @@ import PartyDetail, {
 } from '@/Database/models/Partydetails'
 import { loadPartyDetail, syncPartyDetail } from '@/Services/Partydetailsync'
 import { Colors } from '@/utils/colors'
-import { router, Stack, useLocalSearchParams } from 'expo-router'
-import React, { useCallback, useEffect, useState } from 'react'
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
+import React, { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
   ScrollView,
@@ -85,7 +85,7 @@ function SaleRow({ item }: { item: SaleInvoiceListItem }) {
       style={s.invoiceRow}
       onPress={() =>
         router.push({
-          pathname: '/SaleDetailScreen',
+          pathname: '../../sale/SaleDetailScreen',
           params: { saleId: item.sale_id },
         })
       }
@@ -133,7 +133,7 @@ function PurchaseRow({ item }: { item: PurchaseBillListItem }) {
       style={s.invoiceRow}
       onPress={() =>
         router.push({
-          pathname: '/PurchaseDetailScreen',
+          pathname: '../../purchase/PurchaseDetailScreen',
           params: { purchaseId: item.purchase_id },
         })
       }
@@ -187,13 +187,16 @@ export default function PartyDetailScreen() {
     setSyncing(false)
   }, [partyId])
 
-  useEffect(() => {
-    load().finally(() => setLoading(false))
-    runSync()
-  }, [load, runSync])
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true)
+      load().finally(() => setLoading(false))
+      runSync()
+    }, [partyId])
+  )
 
   // ── Loading ────────────────────────────────────────────────────────────────
-  if (loading && !detail) {
+  if ((loading || syncing) && !detail) {
     return (
       <View style={s.center}>
         <Stack.Screen options={{ title: 'Party Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
@@ -230,7 +233,37 @@ export default function PartyDetailScreen() {
       contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
     >
-      <Stack.Screen options={{ title: detail.partyName, headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
+      <Stack.Screen
+        options={{
+          title: detail.partyName,
+          headerShown: true,
+          headerBackButtonDisplayMode: 'minimal',
+          headerRight: () => (
+            <TouchableOpacity
+              style={s.editBtn}
+              activeOpacity={0.7}
+              onPress={() =>
+                router.push({
+                  pathname: '../../parties/PartyUpdateScreen',
+                  params: {
+                    partyId: partyId,
+                    partyName: detail.partyName,
+                    gstinUin: detail.gstinUin ?? '',
+                    partyType: detail.partyType,
+                    address: detail.address ?? '',
+                    email: detail.email ?? '',
+                    phone: detail.phone ?? '',
+                    panNo: detail.panNo ?? '',
+                    isActive: detail.isActive ?? '1',
+                  },
+                })
+              }
+            >
+              <Text style={s.editBtnText}>✏ Edit</Text>
+            </TouchableOpacity>
+          ),
+        }}
+      />
 
       {/* ── Hero card ──────────────────────────────────────────────────────── */}
       <View style={s.heroCard}>
@@ -352,6 +385,13 @@ const s = StyleSheet.create({
   retryBtn: { paddingHorizontal: 20, paddingVertical: 10, backgroundColor: Colors.brandColor, borderRadius: 8 },
   retryText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   footer: { height: 32 },
+  editBtn: {
+    backgroundColor: Colors.brandColor,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  editBtnText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
 
   // ── Hero ───────────────────────────────────────────────────────────────────
   heroCard: {
@@ -374,13 +414,13 @@ const s = StyleSheet.create({
   pan: { fontSize: 11, color: '#9CA3AF', marginTop: 6 },
 
   // ── Summary cards ──────────────────────────────────────────────────────────
-  summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 14 },
-  summaryCard: { flex: 1, borderRadius: 12, padding: 12, borderWidth: 0.5 },
+  summaryRow: { flexDirection: 'column', gap: 10, marginBottom: 14 },
+  summaryCard: { borderRadius: 12, padding: 12, borderWidth: 0.5 },
   summaryCardSales: { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' },
   summaryCardPurchase: { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' },
   summaryCardTitle: { fontSize: 12, fontWeight: '600', color: '#374151', marginBottom: 10 },
-  statsGrid: { gap: 8 },
-  stat: { gap: 1 },
+  statsGrid: { flexDirection: 'row', justifyContent: 'space-between' },
+  stat: { gap: 1, alignItems: 'center', flex: 1 },
   statValue: { fontSize: 13, fontWeight: '700', color: '#111827' },
   statLabel: { fontSize: 10, color: '#9CA3AF' },
   accentGreen: { color: '#059669' },

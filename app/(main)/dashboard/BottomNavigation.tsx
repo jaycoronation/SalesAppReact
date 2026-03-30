@@ -3,12 +3,10 @@ import {
     createBottomTabNavigator,
 } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
     Animated,
-    Modal,
     Platform,
-    Pressable,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -21,11 +19,11 @@ import {
 
 // ── Your screens ─────────────────────────────────────────
 import { Colors } from '@/utils/colors';
-import { SessionManager } from '@/utils/sessionManager';
+import PurchaseRegisterScreen from '../others/PurchaseRegisterScreen';
+import PartyListScreen from '../parties/PartyListScreen';
+import PaymentListScreen from '../payments/PaymentListScreen';
+import ProfileScreen from '../profile/ProfileScreen';
 import DashboardScreen from './dashboard_new';
-import PartyListScreen from './PartyListScreen';
-import PaymentListScreen from './PaymentListScreen';
-import PurchaseRegisterScreen from './PurchaseRegisterScreen';
 
 // ── Navigation Ref (for logout) ───────────────────────────
 export const navigationRef = createNavigationContainerRef();
@@ -107,33 +105,11 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
         </View>
     );
 };
-// ── Profile Screen (with logout) ─────────────────────────
-const ProfileScreen = ({ onLogout }: { onLogout: () => void }) => (
-    <View style={styles.center}>
-        <Text style={{ fontSize: 18 }}>Profile</Text>
-
-        <TouchableOpacity onPress={onLogout}>
-            <Text style={{ color: 'red', marginTop: 20 }}>Logout</Text>
-        </TouchableOpacity>
-    </View>
-);
 
 // ── Navigator ────────────────────────────────────────────
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 const AppNavigator = () => {
-    const [logoutVisible, setLogoutVisible] = useState(false);
-
-    const handleLogout = () => {
-        SessionManager.clearSession();
-        setLogoutVisible(false);
-
-        navigationRef.reset({
-            index: 0,
-            routes: [{ name: 'Dashboard' }],
-        });
-    };
-
     return (
         <>
             <Tab.Navigator
@@ -144,36 +120,8 @@ const AppNavigator = () => {
                 <Tab.Screen name="Parties" component={PartyListScreen} />
                 <Tab.Screen name="Receivables" component={PurchaseRegisterScreen} />
                 <Tab.Screen name="Payments" component={PaymentListScreen} />
-                <Tab.Screen name="Profile">
-                    {() => <ProfileScreen onLogout={() => setLogoutVisible(true)} />}
-                </Tab.Screen>
+                <Tab.Screen name="Profile" component={ProfileScreen} />
             </Tab.Navigator>
-
-            {/* Logout Modal */}
-            <Modal transparent visible={logoutVisible} animationType="fade">
-                <Pressable
-                    style={styles.overlay}
-                    onPress={() => setLogoutVisible(false)}
-                >
-                    <Pressable style={styles.dialog}>
-                        <Text style={styles.title}>Log out?</Text>
-
-                        <TouchableOpacity
-                            style={styles.btn}
-                            onPress={handleLogout}
-                        >
-                            <Text style={{ color: 'red' }}>Logout</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.btn}
-                            onPress={() => setLogoutVisible(false)}
-                        >
-                            <Text>Cancel</Text>
-                        </TouchableOpacity>
-                    </Pressable>
-                </Pressable>
-            </Modal>
         </>
     );
 };

@@ -78,6 +78,20 @@ export default schemaMigrations({
                     ],
                 })
             ]
+        },
+        {
+            toVersion: 5,
+            steps: [
+                createTable({
+                    name: 'stock_grade_details',
+                    columns: [
+                        { name: 'month', type: 'number' },
+                        { name: 'year', type: 'number' },
+                        { name: 'inwards_json', type: 'string', isOptional: true },
+                        { name: 'outwards_json', type: 'string', isOptional: true },
+                    ],
+                })
+            ]
         }
     ],
 })

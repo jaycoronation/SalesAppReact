@@ -65,7 +65,7 @@ function PaymentRow({ item, last }: { item: UpcomingPayment; last: boolean }) {
       style={[s.row, { backgroundColor: ug.bg, borderColor: ug.border }, last && s.rowLast]}
       onPress={() =>
         router.push({
-          pathname: '/PurchaseDetailScreen',
+          pathname: '/(main)/purchase/PurchaseDetailScreen',
           params: { purchaseId: item.purchaseId },
         })
       }

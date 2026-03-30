@@ -57,3 +57,33 @@ export const apiPost = async (
     return { success: false, data: null };
   }
 };
+
+// ✅ POST Multipart API (for Profile Update with Image)
+export const apiPostMultipart = async (url: string, formData: FormData) => {
+  try {
+    const token = await SessionManager.getToken();
+
+    const headers: any = {
+      ...(token && { Authorization: `Bearer ${token}` }),
+      // Note: Don't set Content-Type header for multipart/form-data, 
+      // fetch will set it automatically with the correct boundary.
+    };
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    return {
+      success: response.ok,
+      data,
+      status: response.status,
+    };
+  } catch (error) {
+    console.log("Multipart POST Error:", error);
+    return { success: false, data: null };
+  }
+};

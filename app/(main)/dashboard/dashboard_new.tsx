@@ -30,14 +30,25 @@ import {
 
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const MONTH = 2
-const YEAR = 2026
-const FISCAL_YEAR = '2025-26'
+const NOW = new Date()
+const DEFAULT_MONTH = NOW.getMonth() + 1   // 1–12
+const DEFAULT_YEAR = NOW.getFullYear()
 
 const MONTH_NAMES: Record<number, string> = {
   1: 'January', 2: 'February', 3: 'March', 4: 'April',
   5: 'May', 6: 'June', 7: 'July', 8: 'August',
   9: 'September', 10: 'October', 11: 'November', 12: 'December',
+}
+
+const MONTH_SHORT: Record<number, string> = {
+  1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr',
+  5: 'May', 6: 'Jun', 7: 'Jul', 8: 'Aug',
+  9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec',
+}
+
+function getFiscalYear(month: number, year: number): string {
+  if (month >= 4) return `${year}-${String(year + 1).slice(-2)}`
+  return `${year - 1}-${String(year).slice(-2)}`
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -246,7 +257,7 @@ function UpcomingRow({ item }: { item: UpcomingPaymentItem }) {
       activeOpacity={0.7}
       onPress={() =>
         router.push({
-          pathname: '/PurchaseDetailScreen',
+          pathname: '/(main)/purchase/PurchaseDetailScreen',
           params: { purchaseId: item.purchase_id },
         })
       }
@@ -272,7 +283,7 @@ function RecentInvoiceRow({ item }: { item: RecentInvoiceItem }) {
       activeOpacity={0.7}
       onPress={() =>
         router.push({
-          pathname: '/SaleDetailScreen',
+          pathname: '../../sale/SaleDetailScreen',
           params: { saleId: item.sale_id },
         })
       }
@@ -419,66 +430,190 @@ function StockGradeTable({ grades }: { grades: StockGradeItem[] }) {
   )
 }
 
+
+// ─── Month / Year Picker ──────────────────────────────────────────────────────
+
+function MonthYearPicker({
+  visible,
+  month,
+  year,
+  onApply,
+  onClose,
+}: {
+  visible: boolean
+  month: number
+  year: number
+  onApply: (month: number, year: number) => void
+  onClose: () => void
+}) {
+  const [selYear, setSelYear] = useState(year)
+  const [selMonth, setSelMonth] = useState(month)
+
+  // Reset picker state whenever it opens
+  useEffect(() => {
+    if (visible) { setSelYear(year); setSelMonth(month) }
+  }, [visible])
+
+  const minYear = DEFAULT_YEAR - 3
+  const maxYear = DEFAULT_YEAR
+
+  return (
+    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
+      <Pressable style={pk.overlay} onPress={onClose}>
+        <Pressable style={pk.sheet} onPress={() => { }}>
+          {/* Handle */}
+          <View style={pk.handle} />
+
+          <Text style={pk.sheetTitle}>Select Month & Year</Text>
+
+          {/* Year selector */}
+          <View style={pk.yearRow}>
+            <TouchableOpacity
+              style={[pk.yearArrow, selYear <= minYear && pk.yearArrowDisabled]}
+              onPress={() => selYear > minYear && setSelYear(v => v - 1)}
+              hitSlop={{ top: 10, bottom: 10, left: 14, right: 14 }}
+            >
+              <Text style={[pk.yearArrowText, selYear <= minYear && { color: '#D1D5DB' }]}>‹</Text>
+            </TouchableOpacity>
+            <Text style={pk.yearLabel}>{selYear}</Text>
+            <TouchableOpacity
+              style={[pk.yearArrow, selYear >= maxYear && pk.yearArrowDisabled]}
+              onPress={() => selYear < maxYear && setSelYear(v => v + 1)}
+              hitSlop={{ top: 10, bottom: 10, left: 14, right: 14 }}
+            >
+              <Text style={[pk.yearArrowText, selYear >= maxYear && { color: '#D1D5DB' }]}>›</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Month grid */}
+          <View style={pk.monthGrid}>
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+              const isActive = m === selMonth && selYear === selYear
+              const isCurrent = m === selMonth
+              const isFuture = selYear === DEFAULT_YEAR && m > DEFAULT_MONTH
+              return (
+                <TouchableOpacity
+                  key={m}
+                  style={[
+                    pk.monthBtn,
+                    isCurrent && pk.monthBtnActive,
+                    isFuture && pk.monthBtnDisabled,
+                  ]}
+                  onPress={() => !isFuture && setSelMonth(m)}
+                  activeOpacity={isFuture ? 1 : 0.7}
+                >
+                  <Text style={[
+                    pk.monthBtnText,
+                    isCurrent && pk.monthBtnTextActive,
+                    isFuture && pk.monthBtnTextDisabled,
+                  ]}>
+                    {MONTH_SHORT[m]}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+
+          {/* Actions */}
+          <View style={pk.actions}>
+            <TouchableOpacity style={pk.cancelBtn} onPress={onClose}>
+              <Text style={pk.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={pk.applyBtn}
+              onPress={() => { onApply(selMonth, selYear); onClose() }}
+            >
+              <Text style={pk.applyBtnText}>Apply</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  )
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function DashboardScreen() {
   const [data, setData] = useState<DashboardOverviewV2 | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const [logoutVisible, setLogoutVisible] = useState(false);
+  const [logoutVisible, setLogoutVisible] = useState(false)
+  const [pickerVisible, setPickerVisible] = useState(false)
+  // true only until the very first cache read completes — never set back to true
   const [initialLoading, setInitialLoading] = useState(true)
 
-  const loadLocal = useCallback(async () => {
-    const cached = await loadDashboardV2(MONTH, YEAR)
+  // ── Month / Year filter ────────────────────────────────────────────────────
+  const [selectedMonth, setSelectedMonth] = useState(DEFAULT_MONTH)
+  const [selectedYear, setSelectedYear] = useState(DEFAULT_YEAR)
 
-    if (cached) {
-      setData(cached)
-    }
+  const fiscalYear = getFiscalYear(selectedMonth, selectedYear)
 
-    setInitialLoading(false) // important
+  const loadLocal = useCallback(async (month: number, year: number) => {
+    const cached = await loadDashboardV2(month, year)
+    if (cached) setData(cached)
+    // Mark initial load done regardless of whether cache existed
+    setInitialLoading(false)
   }, [])
 
-
-  const runSync = useCallback(async () => {
+  const runSync = useCallback(async (month: number, year: number) => {
+    const fy = getFiscalYear(month, year)
     await Promise.all([
-      syncDashboardV2(MONTH, YEAR),
-      syncUpcomingPayments(FISCAL_YEAR, 'upcoming'),
-      syncUpcomingPayments(FISCAL_YEAR, 'overdue'),
+      syncDashboardV2(month, year),
+      syncUpcomingPayments(fy, 'upcoming'),
+      syncUpcomingPayments(fy, 'overdue'),
     ])
-    await loadLocal()
+    await loadLocal(month, year)
   }, [loadLocal])
 
+  // Re-subscribe + re-sync whenever month/year changes
   useEffect(() => {
-    const query = observeDashboardV2(MONTH, YEAR)
+    // ⚠️ Do NOT call setData(null) here — that clears cached data and forces
+    // the loader to show. Instead keep stale data visible until new data loads.
+    const subscription = observeDashboardV2(selectedMonth, selectedYear)
+      .observe()
+      .subscribe((records) => {
+        if (records.length > 0) setData(records[0])
+      })
 
-    const subscription = query.observe().subscribe((records) => {
-      if (records.length > 0) {
-        setData(records[0])
-      }
-    })
-
-    // run sync in background
+    // Load from local DB first (fast, works offline), then sync in background
+    loadLocal(selectedMonth, selectedYear)
     setSyncing(true)
-    runSync().finally(() => setSyncing(false))
+    runSync(selectedMonth, selectedYear).finally(() => setSyncing(false))
 
     return () => subscription.unsubscribe()
-
-  }, [])
-
+  }, [selectedMonth, selectedYear])
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    await runSync()
+    await runSync(selectedMonth, selectedYear)
     setRefreshing(false)
-  }, [runSync])
+  }, [runSync, selectedMonth, selectedYear])
 
-  // ── Loading ────────────────────────────────────────────────────────────────
+  const handleFilterApply = useCallback((month: number, year: number) => {
+    setSelectedMonth(month)
+    setSelectedYear(year)
+  }, [])
+
+  // ── Loading — only block render when there is genuinely nothing to show ─────
+  // initialLoading=true + no data = first ever launch with no cache at all
+  if (initialLoading && !data) {
+    return (
+      <View style={s.center}>
+        <Stack.Screen options={{ title: 'Dashboard', headerBackButtonDisplayMode: 'minimal' }} />
+        <ActivityIndicator size="large" color={Colors.brandColor} />
+        <Text style={s.loadingText}>Loading dashboard…</Text>
+      </View>
+    )
+  }
+
+  // Cache read finished but nothing stored — show empty state instead of hanging
   if (!data) {
     return (
       <View style={s.center}>
-        <Stack.Screen options={{ title: 'Dashboard' }} />
-        <ActivityIndicator size="large" color={Colors.brandColor} />
-        <Text style={s.loadingText}>Loading dashboard…</Text>
+        <Stack.Screen options={{ title: 'Dashboard', headerBackButtonDisplayMode: 'minimal' }} />
+        <Text style={s.errorText}>No data available</Text>
+        <Text style={s.loadingText}>Pull down to refresh when online</Text>
       </View>
     )
   }
@@ -569,18 +704,39 @@ export default function DashboardScreen() {
         </Pressable>
       </Modal>
 
+      {/* ── Month / Year Picker ───────────────────────────────────────────── */}
+      <MonthYearPicker
+        visible={pickerVisible}
+        month={selectedMonth}
+        year={selectedYear}
+        onApply={handleFilterApply}
+        onClose={() => setPickerVisible(false)}
+      />
+
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <View style={s.header}>
         <View>
           <Text style={s.headerTitle}>Dashboard</Text>
-          <Text style={s.headerSub}>{MONTH_NAMES[MONTH]} {YEAR}</Text>
+          <Text style={s.headerSub}>{MONTH_NAMES[selectedMonth]} {selectedYear}</Text>
         </View>
-        {syncing && !refreshing && (
-          <View style={s.syncBadge}>
-            <ActivityIndicator size="small" color={Colors.brandColor} style={{ marginRight: 6 }} />
-            <Text style={s.syncText}>Syncing…</Text>
-          </View>
-        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {syncing && !refreshing && (
+            <View style={s.syncBadge}>
+              <ActivityIndicator size="small" color={Colors.brandColor} style={{ marginRight: 6 }} />
+              <Text style={s.syncText}>Syncing…</Text>
+            </View>
+          )}
+          <TouchableOpacity
+            style={s.filterBtn}
+            onPress={() => setPickerVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={s.filterBtnIcon}>📅</Text>
+            <Text style={s.filterBtnText}>
+              {MONTH_SHORT[selectedMonth]} {selectedYear}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── KPI Row ──────────────────────────────────────────────────────── */}
@@ -590,14 +746,14 @@ export default function DashboardScreen() {
           value={fmt(kpi?.sales?.total_sales)}
           sub={`${kpi?.sales?.total_invoices ?? 0} invoices`}
           accent="green"
-          onAction={() => router.push('/SalesListScreen')}
+          onAction={() => router.push('../../sales/SalesListScreen')}
         />
         <KpiCard
           label="Total Purchases"
           value={fmt(kpi?.purchases?.total_purchase)}
           sub={`${kpi?.purchases?.total_bills ?? 0} bills`}
           accent="red"
-          onAction={() => router.push('/purchase')}
+          onAction={() => router.push('../../purchases/PurchaseListScreen')}
         />
       </View>
       <View style={s.kpiRow}>
@@ -673,7 +829,16 @@ export default function DashboardScreen() {
           <Text style={s.agingTotal}>{fmt(recAging?.total_outstanding)}</Text>
           <Text style={s.agingCount}>{recAging?.total_count} invoices</Text>
         </View>
-        {recAging?.buckets && <AgingBar buckets={recAging.buckets} title="Receivables" />}
+        {recAging?.buckets && <AgingBar
+          buckets={recAging.buckets}
+          title="Receivables"
+          onBucketPress={(bucketKey) =>
+            router.push({
+              pathname: '../../others/SalesRegisterScreen',
+              params: { btwnDays: bucketKey, fiscalYear: fiscalYear },
+            })
+          }
+        />}
       </View>
 
       {/* ── Payables Aging ───────────────────────────────────────────────── */}
@@ -692,8 +857,8 @@ export default function DashboardScreen() {
             title="Payables"
             onBucketPress={(bucketKey) =>
               router.push({
-                pathname: '/PurchaseRegisterScreen',
-                params: { btwnDays: bucketKey, fiscalYear: FISCAL_YEAR },
+                pathname: '../../others/PurchaseRegisterScreen',
+                params: { btwnDays: bucketKey, fiscalYear: fiscalYear },
               })
             }
           />
@@ -713,6 +878,18 @@ export default function DashboardScreen() {
         <View style={s.card}>
           <SectionHeader title="Sales by Grade" />
           <StockGradeTable grades={stockGrades} />
+          <TouchableOpacity
+            style={s.breakdownBtn}
+            activeOpacity={0.7}
+            onPress={() =>
+              router.push({
+                pathname: '../../stock/StockGradeDetailScreen',
+                params: { month: String(selectedMonth), year: String(selectedYear) },
+              })
+            }
+          >
+            <Text style={s.breakdownBtnText}>View Breakdown →</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -722,14 +899,14 @@ export default function DashboardScreen() {
           value={fmt(overdueAmount)}
           sub={`${overdueCount} invoices`}
           accent="red"
-          onAction={() => router.push({ pathname: '/UpcomingPaymentsScreen', params: { tab: 'overdue' } })}
+          onAction={() => router.push({ pathname: '../../others/UpcomingPaymentsScreen', params: { tab: 'overdue' } })}
         />
         <KpiCard
           label="Upcoming Payments"
           value={fmt(upccomingAmount)}
           sub={`${upccomingCount} invoices`}
           accent="red"
-          onAction={() => router.push({ pathname: '/UpcomingPaymentsScreen', params: { tab: 'upcoming' } })}
+          onAction={() => router.push({ pathname: '../../others/UpcomingPaymentsScreen', params: { tab: 'upcoming' } })}
         />
       </View>
 
@@ -766,6 +943,8 @@ export default function DashboardScreen() {
         <View style={s.card}>
           <SectionHeader
             title="Recent invoices"
+            actionLabel="See All"
+            onAction={() => router.push({ pathname: '../../others/RecentInvoicesScreen', params: { month: selectedMonth, year: selectedYear } })}
           />
           {recentInvoices.map((item, i) => (
             <View key={item.sale_id}>
@@ -777,7 +956,7 @@ export default function DashboardScreen() {
       )}
 
       {/* ── Quick links ──────────────────────────────────────────────────── */}
-      <View style={s.quickRow}>
+      {/* <View style={s.quickRow}>
         {([
           { label: 'Parties', route: '/PartyListScreen' },
           { label: 'Payments', route: '/PaymentListScreen' },
@@ -790,7 +969,7 @@ export default function DashboardScreen() {
             <Text style={s.quickBtnText}>{q.label} →</Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </View> */}
 
       <View style={s.footer} />
     </ScrollView>
@@ -802,7 +981,8 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   content: { padding: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, backgroundColor: '#F3F4F6' },
-  loadingText: { fontSize: 14, color: '#6B7280' },
+  loadingText: { fontSize: 14, color: '#6B7280', textAlign: 'center' },
+  errorText: { fontSize: 16, fontWeight: '600', color: '#374151', marginBottom: 4 },
   footer: { height: 82 },
 
   // Header
@@ -811,6 +991,9 @@ const s = StyleSheet.create({
   headerSub: { fontSize: 13, color: '#6B7280', marginTop: 2 },
   syncBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.brandColorLight, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 0.5, borderColor: Colors.brandColor },
   syncText: { fontSize: 12, color: Colors.brandColor, fontWeight: '500' },
+  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#FFFFFF', paddingHorizontal: 11, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB' },
+  filterBtnIcon: { fontSize: 13 },
+  filterBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
 
   // KPI
   kpiRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
@@ -874,6 +1057,17 @@ const s = StyleSheet.create({
   divider: { height: 0.5, backgroundColor: '#F3F4F6' },
 
   // Quick links
+  breakdownBtn: {
+    marginTop: 10,
+    borderTopWidth: 0.5,
+    borderTopColor: '#E5E7EB',
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: Colors.brandColorLight,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  breakdownBtnText: { fontSize: 13, fontWeight: '600', color: Colors.brandColor },
   quickRow: { flexDirection: 'row', gap: 10 },
   quickBtn: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 10, padding: 14, alignItems: 'center', borderWidth: 0.5, borderColor: '#E5E7EB' },
   quickBtnText: { fontSize: 14, fontWeight: '500', color: Colors.brandColor },
@@ -1000,4 +1194,50 @@ const st = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+})
+
+// ─── Picker styles ─────────────────────────────────────────────────────────────
+const pk = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    paddingTop: 12,
+  },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB', alignSelf: 'center', marginBottom: 16 },
+  sheetTitle: { fontSize: 16, fontWeight: '700', color: '#111827', textAlign: 'center', marginBottom: 20 },
+
+  // Year navigation
+  yearRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 28, marginBottom: 20 },
+  yearArrow: { padding: 4 },
+  yearArrowDisabled: {},
+  yearArrowText: { fontSize: 28, color: '#374151', fontWeight: '300', lineHeight: 32 },
+  yearLabel: { fontSize: 22, fontWeight: '700', color: '#111827', minWidth: 70, textAlign: 'center' },
+
+  // Month grid (4 columns)
+  monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  monthBtn: {
+    width: '22%',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  monthBtnActive: { backgroundColor: Colors.brandColor, borderColor: Colors.brandColor },
+  monthBtnDisabled: { backgroundColor: '#F3F4F6', borderColor: '#F3F4F6' },
+  monthBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
+  monthBtnTextActive: { color: '#FFFFFF' },
+  monthBtnTextDisabled: { color: '#D1D5DB' },
+
+  // Actions
+  actions: { flexDirection: 'row', gap: 12 },
+  cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#F9FAFB' },
+  cancelBtnText: { fontSize: 15, fontWeight: '600', color: '#6B7280' },
+  applyBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: Colors.brandColor },
+  applyBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 })

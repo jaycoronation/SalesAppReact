@@ -45,7 +45,7 @@ export default function RootLayout() {
 
   // 🔥 Handle auth redirect here
   if (isLoggedIn === null || !isLoggedIn) {
-    return <Redirect href="/login" />;
+    return <Redirect href="/(auth)/login" />;
   }
 
   return (

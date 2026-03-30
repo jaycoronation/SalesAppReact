@@ -83,7 +83,7 @@ function SaleCard({ item }: { item: SaleEntry }) {
       activeOpacity={0.7}
       onPress={() =>
         router.push({
-          pathname: '/SaleDetailScreen',
+          pathname: '../../sale/SaleDetailScreen',
           params: { saleId: item.saleId },
         })
       }

@@ -63,9 +63,6 @@ export async function syncSalesRegister(
                 )
                 .fetch()
 
-
-            console.log('Saved records count:', existing.length);
-            console.log('Saved records:', existing);
             const deleteBatch = existing.map((r) => r.prepareDestroyPermanently())
 
             const insertBatch = (json.data ?? []).map((item: any) =>

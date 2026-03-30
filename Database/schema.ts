@@ -3,7 +3,7 @@ import { appSchema, tableSchema, } from '@nozbe/watermelondb'
 
 
 export default appSchema({
-  version: 4,
+  version: 5,
   tables: [
     tableSchema({
       name: 'dashboard_overview',
@@ -402,6 +402,17 @@ export default appSchema({
         { name: 'is_overdue', type: 'string' },
         { name: 'days_overdue', type: 'string' },
         { name: 'days_until', type: 'string' },
+      ],
+    }),
+
+    // In your schema file — add this table:
+    tableSchema({
+      name: 'stock_grade_details',
+      columns: [
+        { name: 'month', type: 'number' },
+        { name: 'year', type: 'number' },
+        { name: 'inwards_json', type: 'string' },
+        { name: 'outwards_json', type: 'string' },
       ],
     })
 

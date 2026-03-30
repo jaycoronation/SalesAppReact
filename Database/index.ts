@@ -13,6 +13,7 @@ import PurchaseRegisterEntry from './models/Purchaseregisterentry';
 import SalesDetail from "./models/SalesDetail";
 import SaleEntry from "./models/SalesEntry";
 import SalesRegisterEntry from './models/SalesRegisterEntry';
+import StockGradeDetail from "./models/StockGradeDetail";
 import TopParty from "./models/TopParty";
 import UpcomingPayment from './models/Upcomingpayment';
 import schema from "./schema";
@@ -44,5 +45,6 @@ export const database = new Database({
     Party,
     PartyDetail,
     UpcomingPayment,
+    StockGradeDetail
   ],
 })

@@ -22,5 +22,5 @@ export default function Index() {
         );
     }
 
-    return isLoggedIn ? <Redirect href="/BottomNavigation" /> : <Redirect href="/login" />;
+    return isLoggedIn ? <Redirect href="/(main)/dashboard/BottomNavigation" /> : <Redirect href="/(auth)/login" />;
 }
