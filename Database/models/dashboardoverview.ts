@@ -1,8 +1,15 @@
 import { Model } from '@nozbe/watermelondb'
 import { date, field, readonly } from '@nozbe/watermelondb/decorators'
 
-// ─── Nested types ─────────────────────────────────────────────────────────────
+/**
+ * ⚠️  SCHEMA MIGRATION REQUIRED — bump schema version by 1 and add:
+ *
+ *  addColumns('dashboard_overview_v2', [
+ *    { name: 'conversion_generate_json', type: 'string', isOptional: true },
+ *  ])
+ */
 
+// ─── Primitive sub-types ──────────────────────────────────────────────────────
 
 export interface StockOverviewRow {
     qty: string
@@ -37,7 +44,7 @@ export interface KpiSales {
     total_sales: string
     mom_change_pct: string
     mom_direction: string
-    sparkline: number[]
+    sparkline?: number[]
 }
 
 export interface KpiPurchases {
@@ -67,13 +74,15 @@ export interface NetPosition {
     overdue_payable: string
 }
 
+// ─── Aging types ──────────────────────────────────────────────────────────────
+
 export interface AgingBucket {
     label: string
     amount: string
     count: string
 }
 
-export interface AgingData {
+export interface AgingSection {
     total_outstanding: string
     total_count: string
     buckets: {
@@ -84,6 +93,13 @@ export interface AgingData {
         over_30: AgingBucket
     }
 }
+
+export interface AgingData {
+    due: AgingSection
+    upcoming: AgingSection
+}
+
+// ─── Upcoming payments ────────────────────────────────────────────────────────
 
 export interface UpcomingPaymentItem {
     purchase_id: string
@@ -106,6 +122,7 @@ export interface RecentInvoiceItem {
     txn_date: string
     due_date: string
     party_name: string
+    party_id: string
     gstin_uin: string
     gross_total: string
     amount_received: string
@@ -118,13 +135,52 @@ export interface RecentInvoiceItem {
     days_until: string
 }
 
+// ─── Conversion / Generate types ──────────────────────────────────────────────
+
+/** A single grade row inside prod_conv or jw_conv */
+export interface ConversionRow {
+    details: string
+    grade: string
+    qty: string
+    avg_rate: string
+    value: string
+}
+
+/** A totals row (no grade, just qty + value) */
+export interface ConversionTotal {
+    details: string
+    grade: string
+    qty: string
+    avg_rate: string
+    value: string
+}
+
+/** One conversion block — either prod_conv or jw_conv */
+export interface ConversionBlock {
+    rows: ConversionRow[]
+    total: ConversionTotal
+}
+
+/**
+ * Top-level conversion_generate object.
+ * Shape from API:
+ *   { prod_conv: { rows, total }, jw_conv: { rows, total }, net_total: { qty, value, … } }
+ */
+export interface ConversionGenerate {
+    prod_conv: ConversionBlock
+    jw_conv: ConversionBlock
+    net_total: ConversionTotal
+}
+
+// ─── WatermelonDB model ───────────────────────────────────────────────────────
+
 export default class DashboardOverviewV2 extends Model {
     static table = 'dashboard_overview_v2'
 
     @field('month') month!: number
     @field('year') year!: number
 
-    // All sections stored as JSON strings
+    // All sections stored as serialised JSON strings
     @field('kpi_json') kpiJson!: string
     @field('net_position_json') netPositionJson!: string
     @field('receivables_aging_json') receivablesAgingJson!: string
@@ -132,22 +188,15 @@ export default class DashboardOverviewV2 extends Model {
     @field('upcoming_payments_json') upcomingPaymentsJson!: string
     @field('recent_invoices_json') recentInvoicesJson!: string
     @field('profit_loss_json') profitLossJson!: string
-
-
     @field('stock_overview_json') stockOverviewJson!: string
     @field('stock_grade_overview_json') stockGradeOverviewJson!: string
+    /** NEW — requires schema migration (addColumns above) */
+    @field('conversion_generate_json') conversionGenerateJson!: string
 
     @readonly @date('created_at') createdAt!: Date
     @readonly @date('updated_at') updatedAt!: Date
 
     // ── Parsed getters ─────────────────────────────────────────────────────────
-    get stockOverview(): StockOverview {
-        try { return JSON.parse(this.stockOverviewJson || '{}') } catch { return {} as any }
-    }
-
-    get stockGradeOverview(): StockGradeItem[] {
-        try { return JSON.parse(this.stockGradeOverviewJson || '[]') } catch { return [] }
-    }
 
     get kpi(): { sales: KpiSales; purchases: KpiPurchases; gst: KpiGst; tds: KpiTds } {
         try { return JSON.parse(this.kpiJson || '{}') } catch { return {} as any }
@@ -180,31 +229,23 @@ export default class DashboardOverviewV2 extends Model {
     }
 
     get totalOverdueCount(): string {
-        try {
-            const d = JSON.parse(this.upcomingPaymentsJson || '{}')
-            return d.total_overdue ?? ''
-        } catch { return '' }
+        try { return JSON.parse(this.upcomingPaymentsJson || '{}').total_overdue ?? '' }
+        catch { return '' }
     }
 
     get totalOverdueAmount(): string {
-        try {
-            const d = JSON.parse(this.upcomingPaymentsJson || '{}')
-            return d.total_overdue_amount ?? ''
-        } catch { return '' }
+        try { return JSON.parse(this.upcomingPaymentsJson || '{}').total_overdue_amount ?? '' }
+        catch { return '' }
     }
 
     get totalUpcomingCount(): string {
-        try {
-            const d = JSON.parse(this.upcomingPaymentsJson || '{}')
-            return d.total_upcoming ?? ''
-        } catch { return '' }
+        try { return JSON.parse(this.upcomingPaymentsJson || '{}').total_upcoming ?? '' }
+        catch { return '' }
     }
 
     get totalUpcomingAmount(): string {
-        try {
-            const d = JSON.parse(this.upcomingPaymentsJson || '{}')
-            return d.total_upcoming_amount ?? ''
-        } catch { return '' }
+        try { return JSON.parse(this.upcomingPaymentsJson || '{}').total_upcoming_amount ?? '' }
+        catch { return '' }
     }
 
     get recentInvoices(): RecentInvoiceItem[] {
@@ -215,5 +256,19 @@ export default class DashboardOverviewV2 extends Model {
         try { return JSON.parse(this.profitLossJson || '{}') } catch { return {} as any }
     }
 
+    get stockOverview(): StockOverview {
+        try { return JSON.parse(this.stockOverviewJson || '{}') } catch { return {} as any }
+    }
 
+    get stockGradeOverview(): StockGradeItem[] {
+        try { return JSON.parse(this.stockGradeOverviewJson || '[]') } catch { return [] }
+    }
+
+    /** Conversion & generate data (prod + job-work) */
+    get conversionGenerate(): ConversionGenerate | null {
+        try {
+            const d = JSON.parse(this.conversionGenerateJson || 'null')
+            return d && d.prod_conv ? d : null
+        } catch { return null }
+    }
 }

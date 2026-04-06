@@ -1,10 +1,49 @@
-// Services/SalesRegisterSync.ts
 import { database } from '@/Database'
-import SalesRegisterEntry, { BtwnDays } from '@/Database/models/SalesRegisterEntry'
+import SalesRegisterEntry from '@/Database/models/SalesRegisterEntry'
 import { ApiEndPoints } from '@/network/ApiEndPoint'
 import { SessionManager } from '@/utils/sessionManager'
-import { Q } from '@nozbe/watermelondb'
+import { Collection, Q } from '@nozbe/watermelondb'
 import NetInfo from '@react-native-community/netinfo'
+
+// ─── Public Types ─────────────────────────────────────────────────────────────
+
+export type BtwnDays = 'd0_7' | 'd7_15' | 'd15_30' | 'over_30'
+export type Section = 'due' | 'upcoming'
+export type BtwnDaysFilter = BtwnDays | 'all'
+
+export const ALL_BTWN_DAYS: BtwnDays[] = ['d0_7', 'd7_15', 'd15_30', 'over_30']
+
+// ─── API Types ────────────────────────────────────────────────────────────────
+
+interface PartyItem {
+    party_name: string
+    party_id: string
+    gstin_uin: string
+    gross_total: string
+    amount_received: string
+    outstanding: string
+    payment_status: string
+    status_display: string
+    nearest_due_date?: string
+}
+
+interface SectionPayload {
+    totalRecords: string
+    total_invoices: string
+    total_parties: string
+    total_gross: string
+    total_outstanding: string
+    page: string
+    limit: string
+    data: PartyItem[]
+}
+
+export interface SalesRegisterApiResponse {
+    success: number
+    message: string
+    due: SectionPayload
+    upcoming: SectionPayload
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -12,108 +51,95 @@ async function authHeaders(): Promise<Record<string, string>> {
     const token = await SessionManager.getToken()
     return {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
         Authorization: `Bearer ${token ?? ''}`,
     }
 }
 
-function safeNum(val: any): number {
-    const n = typeof val === 'number' ? val : parseFloat(val)
-    return isNaN(n) ? 0 : n
+function getCollection(): Collection<SalesRegisterEntry> | null {
+    try {
+        return database.get<SalesRegisterEntry>('sales_register_entries')
+    } catch (e) {
+        console.error('[salesRegisterSync] collection not found:', e)
+        return null
+    }
 }
 
-// ─── Sync ─────────────────────────────────────────────────────────────────────
-
-export async function syncSalesRegister(
+function buildInsertBatch(
+    col: Collection<SalesRegisterEntry>,
+    items: PartyItem[],
+    section: Section,
     btwnDays: BtwnDays,
-    fiscalYear: string,
-): Promise<void> {
+) {
+    return items.map((item) =>
+        col.prepareCreate((record) => {
+            record.partyId = String(item.party_id)
+            record.partyName = item.party_name
+            record.gstinUin = item.gstin_uin
+            record.grossTotal = item.gross_total
+            record.amountReceived = item.amount_received
+            record.outstanding = item.outstanding
+            record.paymentStatus = item.payment_status
+            record.statusDisplay = item.status_display
+            record.section = section
+            record.btwnDays = btwnDays
+            record.nearestDueDate = item.nearest_due_date ?? ''
+        }),
+    )
+}
+
+// ─── Sync a single btwn_days bucket ──────────────────────────────────────────
+
+async function syncBucket(btwnDays: BtwnDays): Promise<void> {
+    const res = await fetch(
+        `${ApiEndPoints.BASE_URL}dashboard/sales-register-list?btwn_days=${btwnDays}`,
+        { method: 'GET', headers: await authHeaders() },
+    )
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+    const json: SalesRegisterApiResponse = await res.json()
+    if (!json.success) throw new Error(json.message ?? 'API error')
+    const col = getCollection()
+    if (!col) throw new Error('sales_register_entries collection is null')
+
+    await database.write(async () => {
+        // Delete stale rows for this bucket (both sections)
+        const existing = await col.query(Q.where('btwn_days', btwnDays)).fetch()
+        const deleteBatch = existing.map((r) => r.prepareDestroyPermanently())
+
+        const dueItems = json.due.data || []
+        const upcomingItems = json.upcoming.data || []
+
+        const insertBatch = [
+            ...buildInsertBatch(col, dueItems, 'due', btwnDays),
+            ...buildInsertBatch(col, upcomingItems, 'upcoming', btwnDays),
+        ]
+
+        await database.batch(...deleteBatch, ...insertBatch)
+    })
+}
+
+// ─── Public: sync all buckets ─────────────────────────────────────────────────
+
+export async function syncAllSalesRegister(): Promise<void> {
     const { isConnected } = await NetInfo.fetch()
     if (!isConnected) {
-        console.log('Offline — serving cached sales register data')
+        console.log('[salesRegisterSync] Offline — serving cached data')
         return
     }
-
     try {
-        const res = await fetch(
-            `${ApiEndPoints.BASE_URL}dashboard/sales-register-list?btwn_days=${btwnDays}`,
-            { method: 'GET', headers: await authHeaders() },
-        )
-
-        console.log('URL', `${ApiEndPoints.BASE_URL}dashboard/sales-register-list?btwn_days=${btwnDays}`)
-        console.log('res', res)
-
-        // if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-        const json = await res.json()
-        console.log('json data === ', json)
-        if (!json.success) throw new Error(json.message)
-
-        console.log('URL', `${ApiEndPoints.BASE_URL}dashboard/sales-register-list?btwn_days=${btwnDays}&fiscal_year=${fiscalYear}`)
-
-        const collection = database.get<SalesRegisterEntry>('sales_register_entries')
-
-        console.log("DATABASE CHECK", collection)
-
-        await database.write(async () => {
-            // Delete stale records for this bucket + fiscal year
-            const existing = await collection
-                .query(
-                    Q.where('btwn_days', btwnDays),
-                    Q.where('fiscal_year', fiscalYear),
-                )
-                .fetch()
-
-            const deleteBatch = existing.map((r) => r.prepareDestroyPermanently())
-
-            const insertBatch = (json.data ?? []).map((item: any) =>
-                collection.prepareCreate((record: SalesRegisterEntry) => {
-                    record.btwnDays = btwnDays
-                    record.fiscalYear = fiscalYear
-                    record.saleId = String(item.sale_id)
-                    record.voucherNo = item.voucher_no ?? ''
-                    record.txnDate = item.txn_date ?? ''
-                    record.dueDate = item.due_date ?? ''
-                    record.partyName = item.party_name ?? ''
-                    record.partyId = String(item.party_id ?? '')
-                    record.gstinUin = item.gstin_uin ?? ''
-                    record.grossTotal = safeNum(item.gross_total)
-                    record.amountReceived = safeNum(item.amount_received)
-                    record.outstanding = safeNum(item.outstanding)
-                    record.paymentStatus = item.payment_status ?? ''
-                    record.statusDisplay = item.status_display ?? ''
-                    record.invoiceType = item.invoice_type ?? ''
-                    record.isOverdue = String(item.is_overdue ?? '0')
-                    record.daysOverdue = String(item.days_overdue ?? '0')
-                    record.daysUntil = String(item.days_until ?? '0')
-                }),
-            )
-
-            await database.batch(...deleteBatch, ...insertBatch)
-        })
-
+        for (const b of ALL_BTWN_DAYS) {
+            await syncBucket(b)
+        }
     } catch (err) {
-        console.warn('Sales register sync failed, using cached data:', err)
+        console.warn('[salesRegisterSync] Sync failed, using cached:', err)
     }
 }
 
-// ─── Load from local DB ───────────────────────────────────────────────────────
+// ─── Public: load from local DB ───────────────────────────────────────────────
 
-export async function loadSalesRegister(
-    btwnDays: BtwnDays,
-    fiscalYear: string,
-): Promise<SalesRegisterEntry[]> {
-
-    if (!database) {
-        console.log('DB READY?', database);
-        return [];
-    }
-
-    return database
-        .get<SalesRegisterEntry>('sales_register_entries')
-        .query(
-            Q.where('btwn_days', btwnDays),
-            Q.where('fiscal_year', fiscalYear),
-            Q.sortBy('txn_date', Q.desc),
-        )
-        .fetch()
+export async function loadAllSalesRegister(): Promise<SalesRegisterEntry[]> {
+    const col = getCollection()
+    if (!col) return []
+    return col.query(Q.sortBy('party_name', Q.asc)).fetch()
 }

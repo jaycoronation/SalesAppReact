@@ -3,7 +3,7 @@ import { appSchema, tableSchema, } from '@nozbe/watermelondb'
 
 
 export default appSchema({
-  version: 5,
+  version: 13,
   tables: [
     tableSchema({
       name: 'dashboard_overview',
@@ -57,6 +57,7 @@ export default appSchema({
         { name: 'profit_loss_json', type: 'string' },
         { name: 'stock_overview_json', type: 'string', isOptional: true },
         { name: 'stock_grade_overview_json', type: 'string', isOptional: true },
+        { name: 'conversion_generate_json', type: 'string', isOptional: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],
@@ -208,6 +209,7 @@ export default appSchema({
         { name: 'cgst_2_5_purchase', type: 'string' },
         { name: 'sgst_2_5_purchase', type: 'string' },
         { name: 'rounding_up', type: 'string' },
+        { name: 'tds', type: 'string', isOptional: true },
         { name: 'line_items_json', type: 'string' },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
@@ -307,6 +309,7 @@ export default appSchema({
         { name: 'sgst_9_on_sales', type: 'string' },
         { name: 'pf_charge', type: 'string' },
         { name: 'rounding_off', type: 'string' },
+        { name: 'tds', type: 'string', isOptional: true },
         { name: 'line_items_json', type: 'string' },  // JSON array of line items
         { name: 'page', type: 'number' },
         { name: 'created_at', type: 'number' },
@@ -365,17 +368,19 @@ export default appSchema({
         { name: 'voucher_no', type: 'string' },
         { name: 'txn_date', type: 'string' },
         { name: 'due_date', type: 'string' },
-        { name: 'gross_total', type: 'number' },
-        { name: 'amount_paid_out', type: 'number' },
-        { name: 'outstanding', type: 'number' },
+        { name: 'gross_total', type: 'string' },
+        { name: 'amount_paid_out', type: 'string' },
+        { name: 'outstanding', type: 'string' },
         { name: 'payment_status', type: 'string' },
         { name: 'status_display', type: 'string' },
         { name: 'is_overdue', type: 'string' },
         { name: 'days_overdue', type: 'string' },
         { name: 'days_until', type: 'string' },
         { name: 'btwn_days', type: 'string', isIndexed: true },
+        { name: 'section', type: 'string' },
         { name: 'fiscal_year', type: 'string' },
-        { name: 'page', type: 'number' },
+        { name: 'nearest_due_date', type: 'string', isOptional: true },
+        { name: 'page', type: 'string' },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],
@@ -393,15 +398,19 @@ export default appSchema({
         { name: 'party_name', type: 'string' },
         { name: 'party_id', type: 'string' },
         { name: 'gstin_uin', type: 'string' },
-        { name: 'gross_total', type: 'number' },
-        { name: 'amount_received', type: 'number' },
-        { name: 'outstanding', type: 'number' },
+        { name: 'gross_total', type: 'string' },
+        { name: 'amount_received', type: 'string' },
+        { name: 'outstanding', type: 'string' },
         { name: 'payment_status', type: 'string' },
         { name: 'status_display', type: 'string' },
         { name: 'invoice_type', type: 'string' },
         { name: 'is_overdue', type: 'string' },
         { name: 'days_overdue', type: 'string' },
         { name: 'days_until', type: 'string' },
+        { name: 'section', type: 'string' },
+        { name: 'nearest_due_date', type: 'string', isOptional: true },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
       ],
     }),
 
@@ -414,7 +423,33 @@ export default appSchema({
         { name: 'inwards_json', type: 'string' },
         { name: 'outwards_json', type: 'string' },
       ],
-    })
+    }),
+
+    // Invocie 
+    tableSchema({
+      name: 'sale_invoice_entries',
+      columns: [
+        { name: 'sale_id', type: 'string' },
+        { name: 'voucher_no', type: 'string' },
+        { name: 'txn_date', type: 'string' },
+        { name: 'due_date', type: 'string' },
+        { name: 'party_name', type: 'string' },
+        { name: 'party_id', type: 'string' },
+        { name: 'gstin_uin', type: 'string' },
+        { name: 'gross_total', type: 'string' },
+        { name: 'amount_received', type: 'string' },
+        { name: 'outstanding', type: 'string' },
+        { name: 'payment_status', type: 'string' },
+        { name: 'status_display', type: 'string' },
+        { name: 'invoice_type', type: 'string' },
+        { name: 'is_overdue', type: 'string' },
+        { name: 'days_overdue', type: 'string' },
+        { name: 'days_until', type: 'string' },
+        { name: 'month', type: 'string' },
+        { name: 'year', type: 'string' },
+        { name: 'tab_type', type: 'string' }
+      ]
+    }),
 
   ],
 })

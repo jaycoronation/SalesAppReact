@@ -1,138 +1,169 @@
-// app/SalesRegisterScreen.tsx
-import SalesRegisterEntry, { BtwnDays } from '@/Database/models/SalesRegisterEntry'
-import { loadSalesRegister, syncSalesRegister } from '@/Services/SalesRegisterSync'
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet'
-import { router, Stack, useLocalSearchParams } from 'expo-router'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { FinancialYearPicker } from '@/components/FinancialYearPicker'
+import { MonthYearPicker } from '@/components/MonthYearPicker'
+import NotificationBell from '@/components/NotificationBell'
+import { AgingData, AgingSection } from '@/Database/models/dashboardoverview'
+import SalesRegisterEntry from '@/Database/models/SalesRegisterEntry'
+import { loadReceivablesAging, syncDashboardV2 } from '@/Services/DashboardV2Sync'
+import {
+    BtwnDaysFilter,
+    loadAllSalesRegister,
+    Section,
+    syncAllSalesRegister,
+} from '@/Services/SalesRegisterSync'
+import { Colors } from '@/utils/colors'
+import {
+    getCurrentFY,
+    MONTH_SHORT,
+} from '@/utils/fiscalYear'
+import { SessionManager } from '@/utils/sessionManager'
+import { Ionicons } from '@expo/vector-icons'
+import { router, Stack } from 'expo-router'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
     ActivityIndicator,
+    DeviceEventEmitter,
     FlatList,
     RefreshControl,
+    ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(val: number | string | null | undefined): string {
-    const n = typeof val === 'string' ? parseFloat(val) : (val ?? 0)
-    if (!n || isNaN(n as number)) return '₹0'
-    const abs = Math.abs(n as number)
-    const sign = (n as number) < 0 ? '−' : ''
-    if (abs >= 1e7) return `${sign}₹${(abs / 1e7).toFixed(2)} Cr`
-    if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(1)} L`
-    return `${sign}₹${abs.toLocaleString('en-IN')}`
+function fmt(val: number | string): string {
+    const n = typeof val === 'string' ? parseFloat(val) : val
+    if (!n || isNaN(n)) return '₹0'
+    if (n >= 1e7) return `₹${(n / 1e7).toFixed(2)} Cr`
+    if (n >= 1e5) return `₹${(n / 1e5).toFixed(1)} L`
+    return `₹${n.toLocaleString('en-IN')}`
 }
 
-// ─── Config ───────────────────────────────────────────────────────────────────
-
-const BUCKET_LABELS: Record<BtwnDays, string> = {
-    paid: 'Received',
-    d0_7: '0–7 days',
-    d7_15: '7–15 days',
-    d15_30: '15–30 days',
-    over_30: '>30 days',
+function nowMonthYear(): { month: number; year: number } {
+    const d = new Date()
+    return { month: d.getMonth() + 1, year: d.getFullYear() }
 }
 
-const BUCKET_DESC: Record<BtwnDays, string> = {
-    paid: 'Fully received invoices',
-    d0_7: 'Due within a week',
-    d7_15: 'Due in 7–15 days',
-    d15_30: 'Due in 15–30 days',
-    over_30: 'Overdue by 30+ days',
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+interface BtwnFilter {
+    key: BtwnDaysFilter
+    label: string
 }
 
-const BUCKET_COLORS: Record<BtwnDays, { bg: string; text: string; border: string; accent: string }> = {
-    paid: { bg: '#ECFDF5', text: '#065F46', border: '#A7F3D0', accent: '#059669' },
-    d0_7: { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE', accent: '#2563EB' },
-    d7_15: { bg: '#FFFBEB', text: '#92400E', border: '#FDE68A', accent: '#D97706' },
-    d15_30: { bg: '#FFF7ED', text: '#9A3412', border: '#FDBA74', accent: '#EA580C' },
-    over_30: { bg: '#FEF2F2', text: '#991B1B', border: '#FECACA', accent: '#DC2626' },
+const BTWN_FILTERS: BtwnFilter[] = [
+    { key: 'all', label: 'All' },
+    { key: 'd0_7', label: 'd0–7' },
+    { key: 'd7_15', label: 'd7–15' },
+    { key: 'd15_30', label: 'd15–30' },
+    { key: 'over_30', label: 'd>30' },
+]
+
+const SECTION_CFG = {
+    due: {
+        label: 'DUE',
+        subtitle: 'Overdue',
+        dot: '#DC2626',
+        activeBg: '#FEF2F2',
+        activeBorder: '#DC2626',
+        activeText: '#991B1B',
+        activeAmount: '#DC2626',
+    },
+    upcoming: {
+        label: 'UPCOMING',
+        subtitle: 'Due soon',
+        dot: '#2563EB',
+        activeBg: '#EFF6FF',
+        activeBorder: '#2563EB',
+        activeText: '#1D4ED8',
+        activeAmount: '#2563EB',
+    },
+} as const
+
+// ─── Chip summary helpers ─────────────────────────────────────────────────────
+
+interface ChipSummary { count: number; outstanding: number }
+type SectionSummaries = Record<BtwnDaysFilter, ChipSummary>
+
+function bucketToSummary(b: any): ChipSummary {
+    return {
+        count: parseInt(b?.count ?? '0') || 0,
+        outstanding: parseFloat(b?.amount ?? '0') || 0,
+    }
 }
 
-const BUCKET_DOT: Record<BtwnDays, string> = {
-    paid: '#059669',
-    d0_7: '#2563EB',
-    d7_15: '#D97706',
-    d15_30: '#EA580C',
-    over_30: '#DC2626',
+function sectionToSummaries(s: AgingSection | undefined): SectionSummaries {
+    return {
+        d0_7: bucketToSummary(s?.buckets?.d0_7),
+        d7_15: bucketToSummary(s?.buckets?.d7_15),
+        d15_30: bucketToSummary(s?.buckets?.d15_30),
+        over_30: bucketToSummary(s?.buckets?.over_30),
+        all: {
+            count: parseInt(s?.total_count ?? '0') || 0,
+            outstanding: parseFloat(s?.total_outstanding ?? '0') || 0,
+        },
+    }
 }
 
-const ALL_BUCKETS = Object.keys(BUCKET_LABELS) as BtwnDays[]
-
-function statusStyle(statusDisplay: string, isOverdue: string) {
-    if (isOverdue === '1') return { bg: '#FEF2F2', text: '#991B1B', border: '#FECACA' }
-    if (statusDisplay?.toLowerCase() === 'paid' ||
-        statusDisplay?.toLowerCase() === 'received') return { bg: '#D1FAE5', text: '#065F46', border: '#6EE7B7' }
-    if (statusDisplay?.toLowerCase() === 'partial') return { bg: '#FEF9C3', text: '#92400E', border: '#FDE68A' }
-    return { bg: '#FEF9C3', text: '#92400E', border: '#FDE68A' }
+const EMPTY_SUMMARIES: SectionSummaries = {
+    d0_7: { count: 0, outstanding: 0 }, d7_15: { count: 0, outstanding: 0 },
+    d15_30: { count: 0, outstanding: 0 }, over_30: { count: 0, outstanding: 0 },
+    all: { count: 0, outstanding: 0 },
 }
 
-// ─── Row ──────────────────────────────────────────────────────────────────────
+// ─── Party Row ────────────────────────────────────────────────────────────────
 
-function SaleRow({ item, accent }: { item: SalesRegisterEntry; accent: string }) {
-    const ss = statusStyle(item.statusDisplay, item.isOverdue)
-    const daysLabel = item.isOverdue === '1'
-        ? `${item.daysOverdue}d overdue`
-        : item.daysUntil === '0' ? 'Due today' : `${item.daysUntil}d left`
-
-    const receivedPct = item.grossTotal > 0
-        ? Math.min(100, (item.amountReceived / item.grossTotal) * 100)
-        : 0
+function PartyRow({
+    item,
+    amountColor,
+}: {
+    item: SalesRegisterEntry
+    amountColor: string
+}) {
+    const isPaid = item.paymentStatus === 'paid'
+    const badgeBg = isPaid ? '#D1FAE5' : '#FEF9C3'
+    const badgeBorder = isPaid ? '#6EE7B7' : '#FDE68A'
+    const badgeText = isPaid ? '#065F46' : '#92400E'
 
     return (
         <TouchableOpacity
-            activeOpacity={0.7}
+            activeOpacity={0.75}
             style={s.row}
             onPress={() =>
                 router.push({
-                    pathname: '../../sale/SaleDetailScreen',
-                    params: { saleId: item.saleId },
+                    pathname: '/parties/PartyDetailScreen',
+                    params: { partyId: item.partyId },
                 })
             }
         >
-            {/* Left */}
             <View style={s.rowLeft}>
                 <View style={s.rowTopRow}>
-                    <Text style={s.partyName} numberOfLines={1}>{item.partyName}</Text>
-                    <View style={[s.statusBadge, { backgroundColor: ss.bg, borderColor: ss.border }]}>
-                        <Text style={[s.statusText, { color: ss.text }]}>{item.statusDisplay}</Text>
+                    <Text style={s.partyName} numberOfLines={2}>
+                        {item.partyName}
+                    </Text>
+                    <View style={[s.badge, { backgroundColor: badgeBg, borderColor: badgeBorder }]}>
+                        <Text style={[s.badgeText, { color: badgeText }]}>
+                            {item.statusDisplay}
+                        </Text>
                     </View>
                 </View>
-
-                <Text style={[s.voucherNo, { color: accent }]}>{item.voucherNo}</Text>
-
-                <Text style={s.dates}>
-                    {item.txnDate}  ·  Due: {item.dueDate}
-                </Text>
-
-                {/* Invoice type pill */}
-                <View style={s.typeRow}>
-                    <View style={[s.typePill, { backgroundColor: accent + '18' }]}>
-                        <Text style={[s.typePillText, { color: accent }]}>{item.invoiceType}</Text>
-                    </View>
-                    {item.gstinUin ? (
-                        <Text style={s.gstin} numberOfLines={1}>{item.gstinUin}</Text>
-                    ) : null}
-                </View>
-
-                {/* Progress bar — amount received vs gross */}
-                {receivedPct > 0 && (
-                    <View style={s.progressWrap}>
-                        <View style={[s.progressBar, { width: `${receivedPct}%` as any, backgroundColor: '#059669' }]} />
-                    </View>
-                )}
+                <Text style={s.gstin} numberOfLines={1}>{item.gstinUin}</Text>
             </View>
 
-            {/* Right */}
             <View style={s.rowRight}>
-                <Text style={s.outstanding}>{fmt(item.outstanding)}</Text>
-                <Text style={s.grossTotal}>{fmt(item.grossTotal)} total</Text>
-                <Text style={[s.daysLabel, { color: item.isOverdue === '1' ? '#DC2626' : '#6B7280' }]}>
-                    {daysLabel}
+                <Text style={[s.outstanding, { color: amountColor }]}>
+                    {fmt(item.outstanding)}
                 </Text>
+                <Text style={s.grossTotal}>{fmt(item.grossTotal)} total</Text>
+                {item.nearestDueDate ? (
+                    <Text style={s.dueDateLabel}>
+                        {item.section === 'due' ? 'First unpaid: ' : 'Last unpaid: '}
+                        <Text style={s.dueDateValue}>{item.nearestDueDate}</Text>
+                    </Text>
+                ) : null}
             </View>
         </TouchableOpacity>
     )
@@ -141,46 +172,137 @@ function SaleRow({ item, accent }: { item: SalesRegisterEntry; accent: string })
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SalesRegisterScreen() {
-    const { btwnDays, fiscalYear } = useLocalSearchParams<{
-        btwnDays: BtwnDays
-        fiscalYear: string
-    }>()
+    const now = new Date()
+    const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
+    const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+    const [selectedFY, setSelectedFY] = useState(getCurrentFY())
+    const [isFYPickerVisible, setFYPickerVisible] = useState(false)
+    const [isPickerVisible, setPickerVisible] = useState(false)
 
-    const fy = fiscalYear ?? '2025-26'
-
-    const [bucket, setBucket] = useState<BtwnDays>((btwnDays as BtwnDays) ?? 'd0_7')
-    const [entries, setEntries] = useState<SalesRegisterEntry[]>([])
+    const [agingData, setAgingData] = useState<AgingData | null>(null)
+    const [allEntries, setAllEntries] = useState<SalesRegisterEntry[]>([])
+    const [selectedSection, setSelectedSection] = useState<Section>('due')
+    const [selectedBtwn, setSelectedBtwn] = useState<BtwnDaysFilter>('all')
     const [syncing, setSyncing] = useState(false)
     const [refreshing, setRefreshing] = useState(false)
 
-    const bucketCfg = BUCKET_COLORS[bucket]
-    const bucketLabel = BUCKET_LABELS[bucket]
+    const [isSearchVisible, setIsSearchVisible] = useState(false)
+    const [searchQuery, setSearchQuery] = useState('')
 
-    // ── Derived summary ────────────────────────────────────────────────────────
-    const totalRecords = entries.length
-    const totalOutstanding = entries.reduce((s, r) => s + r.outstanding, 0)
-    const totalGross = entries.reduce((s, r) => s + r.grossTotal, 0)
-    const totalReceived = entries.reduce((s, r) => s + r.amountReceived, 0)
-    const overdueCount = entries.filter((r) => r.isOverdue === '1').length
-    const uniqueParties = new Set(entries.map((r) => r.partyId)).size
+    const summaries = useMemo<Record<Section, SectionSummaries>>(() => ({
+        due: agingData?.due ? sectionToSummaries(agingData.due) : EMPTY_SUMMARIES,
+        upcoming: agingData?.upcoming ? sectionToSummaries(agingData.upcoming) : EMPTY_SUMMARIES,
+    }), [agingData])
 
-    // ── Data ───────────────────────────────────────────────────────────────────
-    const loadLocal = useCallback(async () => {
-        const records = await loadSalesRegister(bucket, fy)
-        setEntries(records)
-    }, [bucket, fy])
+    const entries = useMemo(() => {
+        let filtered = selectedBtwn === 'all'
+            ? allEntries.filter((e) => e.section === selectedSection)
+            : allEntries.filter(
+                (e) => e.section === selectedSection && e.btwnDays === selectedBtwn,
+            )
+
+        // Consolidate by Party if in All bucket
+        if (selectedBtwn === 'all') {
+            const map: Record<string, any> = {}
+            for (const e of filtered) {
+                if (!map[e.partyId]) {
+                    map[e.partyId] = {
+                        partyId: e.partyId,
+                        partyName: e.partyName,
+                        gstinUin: e.gstinUin,
+                        paymentStatus: e.paymentStatus,
+                        statusDisplay: e.statusDisplay,
+                        section: e.section,
+                        outstanding: e.outstanding,
+                        grossTotal: e.grossTotal,
+                        nearestDueDate: e.nearestDueDate,
+                    }
+                } else {
+                    map[e.partyId].outstanding += e.outstanding
+                    map[e.partyId].grossTotal += e.grossTotal
+                    // For All bucket consolidation, we'll keep the first one found 
+                    // as the API likely provides the consolidated date.
+                }
+            }
+            filtered = Object.values(map)
+        }
+
+        // Apply Search
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase()
+            filtered = filtered.filter(e =>
+                e.partyName.toLowerCase().includes(q) ||
+                (e.gstinUin && e.gstinUin.toLowerCase().includes(q))
+            )
+        }
+
+        return filtered
+    }, [allEntries, selectedSection, selectedBtwn, searchQuery])
+
+    const loadAgingLocal = useCallback(async () => {
+        const aging = await loadReceivablesAging(selectedMonth, selectedYear)
+        setAgingData(aging)
+    }, [selectedMonth, selectedYear])
+
+    const loadEntriesLocal = useCallback(async () => {
+        const rows = await loadAllSalesRegister()
+        setAllEntries(rows)
+    }, [])
 
     const runSync = useCallback(async () => {
-        await syncSalesRegister(bucket, fy)
-        await loadLocal()
-    }, [bucket, fy, loadLocal])
+        // Both syncs run in parallel for speed
+        await Promise.all([
+            syncDashboardV2(selectedMonth, selectedYear),
+            syncAllSalesRegister(),
+        ])
+        // Reload both data sources after sync
+        await Promise.all([
+            loadAgingLocal(),
+            loadEntriesLocal(),
+        ])
+    }, [selectedMonth, selectedYear, loadAgingLocal, loadEntriesLocal])
 
     useEffect(() => {
-        setEntries([])
-        loadLocal()
+        const loadInitial = async () => {
+            const saved = await SessionManager.getDashFilter();
+            if (saved) {
+                setSelectedMonth(saved.month);
+                setSelectedYear(saved.year);
+                setSelectedFY(saved.fy);
+            }
+        };
+        loadInitial();
+
+        const sub = DeviceEventEmitter.addListener('SHARED_FILTER_CHANGED', (data: any) => {
+            setSelectedMonth(data.month);
+            setSelectedYear(data.year);
+            setSelectedFY(data.fy);
+        });
+
+        return () => sub.remove();
+    }, []);
+
+    useEffect(() => {
         setSyncing(true)
-        runSync().finally(() => setSyncing(false))
-    }, [bucket]) // eslint-disable-line react-hooks/exhaustive-deps
+        Promise.all([loadAgingLocal(), loadEntriesLocal()])
+            .then(runSync)
+            .finally(() => setSyncing(false))
+    }, [selectedMonth, selectedYear]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleFYApply = (fy: string) => {
+        setSelectedFY(fy)
+        const d = new Date()
+        const curFY = getCurrentFY()
+        let m = 4, y = parseInt(fy.split('-')[0])
+        if (fy === curFY) {
+            m = d.getMonth() + 1
+            y = d.getFullYear()
+        }
+        setSelectedMonth(m)
+        setSelectedYear(y)
+        SessionManager.setDashFilter(m, y, fy)
+        DeviceEventEmitter.emit('SHARED_FILTER_CHANGED', { month: m, year: y, fy })
+    }
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true)
@@ -188,315 +310,368 @@ export default function SalesRegisterScreen() {
         setRefreshing(false)
     }, [runSync])
 
-    // ── Bottom Sheet ───────────────────────────────────────────────────────────
-    const sheetRef = useRef<BottomSheet>(null)
-    const snapPoints = useMemo(() => ['42%'], [])
+    const handleFilterApply = useCallback((month: number, year: number) => {
+        setSelectedMonth(month)
+        setSelectedYear(year)
+        SessionManager.setDashFilter(month, year, selectedFY)
+        DeviceEventEmitter.emit('SHARED_FILTER_CHANGED', { month, year, fy: selectedFY })
+    }, [selectedFY])
 
-    const openFilter = () => sheetRef.current?.expand()
-    const closeFilter = () => sheetRef.current?.close()
+    const cfg = SECTION_CFG[selectedSection]
+    const activeFilter = BTWN_FILTERS.find((f) => f.key === selectedBtwn)!
 
-    const selectBucket = (b: BtwnDays) => {
-        setBucket(b)
-        closeFilter()
-    }
+    const ListHeader = (
+        <View style={s.header}>
+            {/* ── Month & FY Filter ────────────────────────────────────────────────── */}
+            <View style={s.headerFilters}>
+                <View />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TouchableOpacity
+                        style={s.filterBtn}
+                        onPress={() => setFYPickerVisible(true)}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={s.filterBtnIcon}>📅</Text>
+                        <Text style={s.filterBtnText}>{selectedFY}</Text>
+                    </TouchableOpacity>
 
-    const renderBackdrop = useCallback(
-        (props: any) => (
-            <BottomSheetBackdrop
-                {...props}
-                disappearsOnIndex={-1}
-                appearsOnIndex={0}
-                opacity={0.4}
-            />
-        ),
-        [],
+                    <TouchableOpacity
+                        style={s.filterBtn}
+                        onPress={() => setPickerVisible(true)}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={s.filterBtnText}>
+                            {MONTH_SHORT[selectedMonth]} {selectedYear}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* ── Search Bar ──────────────────────────────────────────────────────────── */}
+            {isSearchVisible && (
+                <View style={s.searchRow}>
+                    <View style={s.searchBox}>
+                        <Ionicons name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+                        <TextInput
+                            style={s.searchInput}
+                            placeholder="Search party or GSTIN..."
+                            placeholderTextColor="#9CA3AF"
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            autoFocus
+                            clearButtonMode="while-editing"
+                            autoCapitalize="none"
+                        />
+                    </View>
+                </View>
+            )}
+            {(['due', 'upcoming'] as Section[]).map((sec) => {
+                const scfg = SECTION_CFG[sec]
+                return (
+                    <View key={sec} style={s.strip}>
+                        <View style={s.stripTitle}>
+                            <View style={[s.dot, { backgroundColor: scfg.dot }]} />
+                            <Text style={s.stripLabel}>{scfg.label}</Text>
+                            <Text style={s.stripSub}>· {scfg.subtitle}</Text>
+                            {sec === selectedSection && syncing && !refreshing && (
+                                <ActivityIndicator
+                                    size="small"
+                                    color={scfg.dot}
+                                    style={{ marginLeft: 6 }}
+                                />
+                            )}
+                            <Text style={[s.stripTotal, { color: scfg.dot }]}>
+                                {fmt(summaries[sec].all.outstanding)} ({summaries[sec].all.count} Invoices)
+                            </Text>
+                        </View>
+
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={s.chipRow}
+                        >
+                            {BTWN_FILTERS.map((filter) => {
+                                const sum = summaries[sec][filter.key]
+                                const isActive =
+                                    selectedSection === sec && selectedBtwn === filter.key
+                                return (
+                                    <TouchableOpacity
+                                        key={filter.key}
+                                        activeOpacity={0.75}
+                                        onPress={() => {
+                                            setSelectedSection(sec)
+                                            setSelectedBtwn(filter.key)
+                                        }}
+                                        style={[
+                                            s.chip,
+                                            isActive && {
+                                                backgroundColor: scfg.activeBg,
+                                                borderColor: scfg.activeBorder,
+                                            },
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                s.chipLabel,
+                                                isActive && { color: scfg.activeText, fontWeight: '700' },
+                                            ]}
+                                        >
+                                            {filter.label}
+                                        </Text>
+                                        <Text
+                                            style={[
+                                                s.chipCount,
+                                                isActive && { color: scfg.dot },
+                                            ]}
+                                        >
+                                            {fmt(sum.outstanding)}
+                                        </Text>
+                                        <Text
+                                            style={[
+                                                s.chipAmount,
+                                                isActive && { color: scfg.activeText },
+                                            ]}
+                                            numberOfLines={1}
+                                        >
+                                            {sum.count} Invoices
+                                        </Text>
+                                    </TouchableOpacity>
+                                )
+                            })}
+                        </ScrollView>
+                    </View>
+                )
+            })}
+
+            <View style={s.listMeta}>
+                <View style={[s.dot, { backgroundColor: cfg.dot }]} />
+                <Text style={s.listMetaLabel}>
+                    {cfg.label} · {activeFilter.label}
+                </Text>
+                <Text style={s.listMetaCount}>
+                    {entries.length} Parties
+                </Text>
+            </View>
+        </View>
     )
 
-    // ── Loading ────────────────────────────────────────────────────────────────
-    if (entries.length === 0 && syncing) {
+    if (!agingData && syncing) {
         return (
             <View style={s.center}>
-                <Stack.Screen options={{ title: bucketLabel, headerBackTitle: '', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
-                <ActivityIndicator size="large" color={bucketCfg.accent} />
+                <ActivityIndicator size="large" color={Colors.brandColor} />
                 <Text style={s.loadingText}>Loading…</Text>
             </View>
         )
     }
 
-    // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <View style={s.container}>
-            <Stack.Screen options={{ title: `Receivables · ${bucketLabel}`, headerBackTitle: '', headerShown: true, headerBackButtonDisplayMode: "minimal", }} />
+            <Stack.Screen
+                options={{
+                    title: 'Receivables',
+                    headerBackTitle: '',
+                    headerShown: true,
+                    headerBackVisible: true,
+                    headerTintColor: Colors.brandColor,
+                    headerRight: () => (
+                        <View style={{ marginRight: 12, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    if (isSearchVisible) setSearchQuery('')
+                                    setIsSearchVisible(!isSearchVisible)
+                                }}
+                            >
+                                <Ionicons
+                                    name={isSearchVisible ? "close-circle-outline" : "search-outline"}
+                                    size={22}
+                                    color={Colors.brandColor}
+                                />
+                            </TouchableOpacity>
+                            <NotificationBell color={Colors.brandColor} />
+                        </View>
+                    ),
+                }}
+            />
 
-            {/* ── Hero summary ──────────────────────────────────────────────── */}
-            <View style={[s.heroCard, { backgroundColor: bucketCfg.bg, borderColor: bucketCfg.border }]}>
-                <View style={s.heroTopRow}>
-                    <View style={[s.bucketPill, { backgroundColor: bucketCfg.accent }]}>
-                        <Text style={s.bucketPillText}>{bucketLabel}</Text>
-                    </View>
-                    <View style={s.heroTopRight}>
-                        {syncing && !refreshing && (
-                            <ActivityIndicator size="small" color={bucketCfg.accent} />
-                        )}
-                        <TouchableOpacity
-                            style={[s.filterBtn, { borderColor: bucketCfg.accent }]}
-                            onPress={openFilter}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={[s.filterBtnText, { color: bucketCfg.accent }]}>⇅ Filter</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
+            <FinancialYearPicker
+                visible={isFYPickerVisible}
+                selectedFY={selectedFY}
+                onApply={handleFYApply}
+                onClose={() => setFYPickerVisible(false)}
+            />
 
-                {/* Outstanding amount */}
-                <Text style={[s.heroAmount, { color: bucketCfg.accent }]}>{fmt(totalOutstanding)}</Text>
-                <Text style={s.heroSub}>Outstanding across {totalRecords} invoices</Text>
+            <MonthYearPicker
+                visible={isPickerVisible}
+                month={selectedMonth}
+                year={selectedYear}
+                selectedFY={selectedFY}
+                onApply={handleFilterApply}
+                onClose={() => setPickerVisible(false)}
+            />
 
-                {/* Progress bar: received vs gross */}
-                {totalGross > 0 && (
-                    <View style={s.heroProgressWrap}>
-                        <View
-                            style={[
-                                s.heroProgressBar,
-                                {
-                                    width: `${Math.min(100, (totalReceived / totalGross) * 100)}%` as any,
-                                    backgroundColor: '#059669',
-                                },
-                            ]}
-                        />
-                    </View>
-                )}
-
-                {/* Stats row */}
-                <View style={s.heroStats}>
-                    <View style={s.heroStat}>
-                        <Text style={[s.heroStatVal, { color: bucketCfg.text }]}>{fmt(totalGross)}</Text>
-                        <Text style={s.heroStatLabel}>Gross total</Text>
-                    </View>
-                    <View style={s.heroStatDivider} />
-                    <View style={s.heroStat}>
-                        <Text style={[s.heroStatVal, { color: bucketCfg.text }]}>{uniqueParties}</Text>
-                        <Text style={s.heroStatLabel}>Parties</Text>
-                    </View>
-                    <View style={s.heroStatDivider} />
-                    <View style={s.heroStat}>
-                        <Text style={[s.heroStatVal, { color: overdueCount > 0 ? '#DC2626' : bucketCfg.text }]}>
-                            {overdueCount}
-                        </Text>
-                        <Text style={s.heroStatLabel}>Overdue</Text>
-                    </View>
-                </View>
-            </View>
-
-            {/* ── List ──────────────────────────────────────────────────────── */}
             <FlatList
                 data={entries}
-                keyExtractor={(item) => `${item.btwnDays}-${item.saleId}-${item.partyId}`}
-                renderItem={({ item }) => <SaleRow item={item} accent={bucketCfg.accent} />}
+                keyExtractor={(item, i) =>
+                    `${item.section}-${item.btwnDays}-${item.partyId}-${i}`
+                }
+                renderItem={({ item }) => (
+                    <PartyRow item={item} amountColor={cfg.activeAmount} />
+                )}
+                ListHeaderComponent={ListHeader}
                 contentContainerStyle={s.listContent}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
                         onRefresh={onRefresh}
-                        tintColor={bucketCfg.accent}
+                        tintColor={cfg.dot}
                     />
                 }
                 ListEmptyComponent={
                     <View style={s.empty}>
-                        <Text style={s.emptyText}>No invoices for this bucket</Text>
+                        <Text style={s.emptyIcon}>📭</Text>
+                        <Text style={s.emptyText}>No records</Text>
+                        <Text style={s.emptyHint}>Pull down to refresh</Text>
                     </View>
                 }
-                ListFooterComponent={<View style={s.footer} />}
+                ListFooterComponent={<View style={{ height: 120 }} />}
             />
-
-            {/* ── Filter Bottom Sheet ──────────────────────────────────────── */}
-            <BottomSheet
-                ref={sheetRef}
-                index={-1}
-                snapPoints={snapPoints}
-                enablePanDownToClose
-                backdropComponent={renderBackdrop}
-                handleIndicatorStyle={s.sheetHandle}
-                backgroundStyle={s.sheetBg}
-            >
-                <BottomSheetView style={s.sheetContent}>
-                    <View style={s.sheetHeader}>
-                        <Text style={s.sheetTitle}>Filter by Due Period</Text>
-                        <TouchableOpacity onPress={closeFilter} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                            <Text style={s.sheetClose}>✕</Text>
-                        </TouchableOpacity>
-                    </View>
-                    <Text style={s.sheetSubtitle}>Select a bucket to view receivables</Text>
-
-                    <View style={s.bucketList}>
-                        {ALL_BUCKETS.map((b) => {
-                            const cfg = BUCKET_COLORS[b]
-                            const isActive = b === bucket
-                            return (
-                                <TouchableOpacity
-                                    key={b}
-                                    activeOpacity={0.7}
-                                    onPress={() => selectBucket(b)}
-                                    style={[
-                                        s.bucketOption,
-                                        isActive && {
-                                            backgroundColor: cfg.bg,
-                                            borderColor: cfg.accent,
-                                            borderWidth: 1.5,
-                                        },
-                                    ]}
-                                >
-                                    <View style={[s.bucketDot, { backgroundColor: BUCKET_DOT[b] }]} />
-                                    <View style={s.bucketOptionMid}>
-                                        <Text style={[
-                                            s.bucketOptionLabel,
-                                            isActive && { color: cfg.text, fontWeight: '700' },
-                                        ]}>
-                                            {BUCKET_LABELS[b]}
-                                        </Text>
-                                        <Text style={s.bucketOptionDesc}>{BUCKET_DESC[b]}</Text>
-                                    </View>
-                                    {isActive && (
-                                        <View style={[s.checkCircle, { backgroundColor: cfg.accent }]}>
-                                            <Text style={s.checkMark}>✓</Text>
-                                        </View>
-                                    )}
-                                </TouchableOpacity>
-                            )
-                        })}
-                    </View>
-                </BottomSheetView>
-            </BottomSheet>
         </View>
     )
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F3F4F6' },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, backgroundColor: '#F3F4F6' },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
     loadingText: { fontSize: 14, color: '#6B7280' },
-    listContent: { paddingHorizontal: 16, paddingTop: 4 },
-    footer: { height: 32 },
-    empty: { alignItems: 'center', paddingTop: 60 },
-    emptyText: { fontSize: 14, color: '#9CA3AF' },
+    listContent: { paddingHorizontal: 8, paddingTop: 4 },
 
-    // Hero
-    heroCard: {
-        margin: 16,
-        borderRadius: 14,
-        padding: 16,
-        borderWidth: 0.5,
+    // ── Header ────────────────────────────────────────────────────────────────
+    header: { paddingTop: 4, paddingBottom: 4 },
+
+    headerFilters: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        marginBottom: 16,
     },
-    heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    heroTopRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    bucketPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-    bucketPillText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
-
     filterBtn: {
-        paddingHorizontal: 12,
-        paddingVertical: 5,
-        borderRadius: 20,
-        borderWidth: 1.5,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
         backgroundColor: '#FFFFFF',
+        paddingHorizontal: 11,
+        paddingVertical: 7,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
     },
-    filterBtnText: { fontSize: 12, fontWeight: '700' },
+    filterBtnIcon: { fontSize: 13 },
+    filterBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
 
-    heroAmount: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, marginBottom: 2 },
-    heroSub: { fontSize: 12, color: '#6B7280', marginBottom: 10 },
-
-    heroProgressWrap: {
-        height: 4,
-        backgroundColor: '#E5E7EB',
-        borderRadius: 2,
-        overflow: 'hidden',
-        marginBottom: 14,
+    strip: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        marginHorizontal: 8,
+        marginBottom: 8,
+        paddingVertical: 10,
     },
-    heroProgressBar: { height: 4, borderRadius: 2 },
+    stripTitle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        marginBottom: 8,
+        gap: 5,
+    },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    stripLabel: { fontSize: 12, fontWeight: '700', color: '#111827' },
+    stripSub: { fontSize: 11, color: '#9CA3AF' },
+    stripTotal: { fontSize: 12, fontWeight: '700', marginLeft: 'auto' },
 
-    heroStats: { flexDirection: 'row', alignItems: 'center' },
-    heroStat: { flex: 1, alignItems: 'center' },
-    heroStatDivider: { width: 0.5, height: 28, backgroundColor: '#D1D5DB' },
-    heroStatVal: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
-    heroStatLabel: { fontSize: 10, color: '#9CA3AF' },
+    chipRow: {
+        paddingHorizontal: 10,
+        gap: 6,
+        flexDirection: 'row',
+    },
+    chip: {
+        width: 76,
+        borderRadius: 10,
+        borderWidth: 1.5,
+        borderColor: '#E5E7EB',
+        backgroundColor: '#F9FAFB',
+        paddingVertical: 8,
+        paddingHorizontal: 6,
+        alignItems: 'center',
+        gap: 2,
+    },
+    chipLabel: { fontSize: 11, fontWeight: '500', color: '#6B7280' },
+    chipCount: { fontSize: 14, fontWeight: '700', color: '#111827' },
+    chipAmount: { fontSize: 9, color: '#9CA3AF', textAlign: 'center' },
 
-    // Row card
+    listMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        gap: 5,
+    },
+    listMetaLabel: { fontSize: 11, fontWeight: '700', color: '#374151', flex: 1 },
+    listMetaCount: { fontSize: 11, color: '#9CA3AF' },
+
+    // ── Search Bar ────────────────────────────────────────────────────────────
+    searchRow: { paddingHorizontal: 10, paddingBottom: 10 },
+    searchBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        height: 40,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    searchInput: { flex: 1, fontSize: 14, color: '#111827', padding: 0 },
+
     row: {
         flexDirection: 'row',
         backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        padding: 14,
-        marginBottom: 8,
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 6,
         borderWidth: 0.5,
         borderColor: '#E5E7EB',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         gap: 8,
     },
-    rowLeft: { flex: 1 },
-    rowTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
-    partyName: { fontSize: 13, fontWeight: '600', color: '#111827', flex: 1 },
-
-    statusBadge: {
+    rowLeft: { flex: 1, },
+    rowTopRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',   // ✅ IMPORTANT
+        gap: 6,
+    },
+    partyName: { fontSize: 13, fontWeight: '600', color: '#111827', flexShrink: 1, },
+    badge: {
         paddingHorizontal: 6,
         paddingVertical: 2,
         borderRadius: 4,
         borderWidth: 0.5,
         flexShrink: 0,
+        alignSelf: 'flex-start',
     },
-    statusText: { fontSize: 10, fontWeight: '600' },
-
-    voucherNo: { fontSize: 12, fontWeight: '500', marginBottom: 2 },
-    dates: { fontSize: 11, color: '#9CA3AF', marginBottom: 4 },
-
-    typeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-    typePill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-    typePillText: { fontSize: 10, fontWeight: '600' },
-    gstin: { fontSize: 10, color: '#9CA3AF', flex: 1 },
-
-    progressWrap: { height: 3, backgroundColor: '#F3F4F6', borderRadius: 2, overflow: 'hidden', marginTop: 2 },
-    progressBar: { height: 3, borderRadius: 2 },
-
+    badgeText: { fontSize: 10, fontWeight: '600' },
+    gstin: { fontSize: 11, color: '#9CA3AF' },
     rowRight: { alignItems: 'flex-end', gap: 2, flexShrink: 0 },
-    outstanding: { fontSize: 14, fontWeight: '700', color: '#111827' },
+    outstanding: { fontSize: 14, fontWeight: '700' },
     grossTotal: { fontSize: 11, color: '#9CA3AF' },
-    daysLabel: { fontSize: 11, fontWeight: '500' },
+    dueDateLabel: { fontSize: 10, color: '#6B7280', marginTop: 2 },
+    dueDateValue: { fontWeight: '600', color: '#374151' },
 
-    // Bottom Sheet
-    sheetBg: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-    sheetHandle: { backgroundColor: '#D1D5DB', width: 40 },
-    sheetContent: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 },
-
-    sheetHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    sheetTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
-    sheetClose: { fontSize: 16, color: '#9CA3AF' },
-    sheetSubtitle: { fontSize: 13, color: '#6B7280', marginBottom: 16 },
-
-    bucketList: { gap: 8 },
-    bucketOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        paddingVertical: 12,
-        paddingHorizontal: 14,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        backgroundColor: '#F9FAFB',
-    },
-    bucketDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
-    bucketOptionMid: { flex: 1 },
-    bucketOptionLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 1 },
-    bucketOptionDesc: { fontSize: 11, color: '#9CA3AF' },
-
-    checkCircle: {
-        width: 22, height: 22, borderRadius: 11,
-        alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-    },
-    checkMark: { fontSize: 12, color: '#FFFFFF', fontWeight: '700' },
+    empty: { alignItems: 'center', paddingTop: 48, gap: 6 },
+    emptyIcon: { fontSize: 32 },
+    emptyText: { fontSize: 14, color: '#9CA3AF', fontWeight: '600' },
+    emptyHint: { fontSize: 12, color: '#D1D5DB' },
 })

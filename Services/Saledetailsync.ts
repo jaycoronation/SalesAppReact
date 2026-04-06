@@ -45,6 +45,7 @@ export interface SaleDetailApiData {
     ogs_jw_sales_18: string | null
     pf_charge: string | null
     rounding_off: string | null
+    tds: string | null
     fiscal_year: string
     remarks: string | null
     created_at: number
@@ -106,6 +107,7 @@ function applyDetailFields(record: SaleDetail, d: SaleDetailApiData): void {
     record.sgst9OnSales = safeStr(d.sgst_9_on_sales)
     record.pfCharge = safeStr(d.pf_charge)
     record.roundingOff = safeStr(d.rounding_off)
+    record.tds = safeStr(d.tds)
     record.lineItemsJson = JSON.stringify(d.line_items ?? [])
 }
 
@@ -129,6 +131,10 @@ function getDetailCollection() {
 // Fetches from API if online, updates cache. Caller reads from local DB always.
 
 export async function syncSaleDetail(saleId: string): Promise<void> {
+    if (!saleId) {
+        console.warn('[syncSaleDetail] No saleId provided');
+        return;
+    }
     const { isConnected } = await NetInfo.fetch()
     if (!isConnected) {
         console.log(`Offline — serving cached detail for sale ${saleId}`)
@@ -171,6 +177,7 @@ export async function syncSaleDetail(saleId: string): Promise<void> {
 // Call this to read the cached detail record after sync.
 
 export async function loadSaleDetail(saleId: string): Promise<SaleDetail | null> {
+    if (!saleId) return null;
     const collection = getDetailCollection()
     if (!collection) return null
 

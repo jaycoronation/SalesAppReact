@@ -4,6 +4,7 @@ import PartyDetail, {
 } from '@/Database/models/Partydetails'
 import { loadPartyDetail, syncPartyDetail } from '@/Services/Partydetailsync'
 import { Colors } from '@/utils/colors'
+import { Ionicons } from '@expo/vector-icons'
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import React, { useCallback, useState } from 'react'
 import {
@@ -14,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { ShimmerBox } from '@/components/Shimmer'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,7 +50,7 @@ function getStatusLabel(status: string, isOverdue: string): string {
 function getTypeColor(type: string) {
   switch (type) {
     case 'customer': return { bg: '#ECFDF5', text: '#065F46', border: '#A7F3D0' }
-    case 'vendor': return { bg: Colors.brandColorLight, text: '#1D4ED8', border: Colors.brandColor }
+    case 'vendor': return { bg: Colors.brandColorLight, text: Colors.brandColor, border: Colors.brandColor }
     default: return { bg: '#F5F3FF', text: '#5B21B6', border: '#DDD6FE' }
   }
 }
@@ -85,7 +87,7 @@ function SaleRow({ item }: { item: SaleInvoiceListItem }) {
       style={s.invoiceRow}
       onPress={() =>
         router.push({
-          pathname: '../../sale/SaleDetailScreen',
+          pathname: '/sales/SaleDetailScreen',
           params: { saleId: item.sale_id },
         })
       }
@@ -164,6 +166,68 @@ function PurchaseRow({ item }: { item: PurchaseBillListItem }) {
   )
 }
 
+// ─── Shimmer Loading Layout ──────────────────────────────────────────────────
+
+function ShimmerPartyDetail() {
+  return (
+    <View style={s.container}>
+      <View style={s.content}>
+        {/* Hero Card Shimmer */}
+        <View style={s.heroCard}>
+          <View style={s.heroTop}>
+            <View style={s.heroLeft}>
+              <ShimmerBox width="70%" height={24} style={{ marginBottom: 8 }} />
+              <ShimmerBox width="40%" height={14} />
+            </View>
+            <ShimmerBox width={80} height={24} borderRadius={6} />
+          </View>
+          <View style={{ marginTop: 15, gap: 8 }}>
+            <ShimmerBox width="50%" height={12} />
+            <ShimmerBox width="30%" height={12} />
+          </View>
+        </View>
+
+        {/* Summary Card Shimmer */}
+        <View style={[s.summaryCard, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0', marginBottom: 10 }]}>
+           <ShimmerBox width={60} height={14} style={{ marginBottom: 15 }} />
+           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
+              <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
+              <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
+           </View>
+        </View>
+
+        <View style={[s.summaryCard, { backgroundColor: '#FFF7ED', borderColor: '#FED7AA', marginBottom: 15 }]}>
+           <ShimmerBox width={60} height={14} style={{ marginBottom: 15 }} />
+           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
+              <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
+              <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
+           </View>
+        </View>
+
+        {/* Tabs Card Shimmer */}
+        <View style={s.tabsCard}>
+          <View style={[s.tabsHeader, { height: 45 }]}>
+            <View style={{ flex: 1, padding: 10 }}><ShimmerBox height={25} /></View>
+            <View style={{ flex: 1, padding: 10 }}><ShimmerBox height={25} /></View>
+          </View>
+          <View style={{ padding: 15, gap: 20 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1 }}><ShimmerBox width="60%" height={16} style={{ marginBottom: 6 }} /><ShimmerBox width="40%" height={12} /></View>
+              <ShimmerBox width={80} height={20} />
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1 }}><ShimmerBox width="60%" height={16} style={{ marginBottom: 6 }} /><ShimmerBox width="40%" height={12} /></View>
+              <ShimmerBox width={80} height={20} />
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  )
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function PartyDetailScreen() {
@@ -173,6 +237,7 @@ export default function PartyDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [activeTab, setActiveTab] = useState<ActiveTab>('sales')
+  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const cached = await loadPartyDetail(partyId)
@@ -181,10 +246,16 @@ export default function PartyDetailScreen() {
 
   const runSync = useCallback(async () => {
     setSyncing(true)
-    await syncPartyDetail(partyId)
-    const fresh = await loadPartyDetail(partyId)
-    if (fresh) setDetail(fresh)
-    setSyncing(false)
+    setError(null)
+    try {
+      await syncPartyDetail(partyId)
+      const fresh = await loadPartyDetail(partyId)
+      if (fresh) setDetail(fresh)
+    } catch (e: any) {
+      setError(e.message || 'Sync failed')
+    } finally {
+      setSyncing(false)
+    }
   }, [partyId])
 
   useFocusEffect(
@@ -198,19 +269,29 @@ export default function PartyDetailScreen() {
   // ── Loading ────────────────────────────────────────────────────────────────
   if ((loading || syncing) && !detail) {
     return (
-      <View style={s.center}>
-        <Stack.Screen options={{ title: 'Party Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
-        <ActivityIndicator size="large" color={Colors.brandColor} />
-        <Text style={s.loadingText}>Loading…</Text>
-      </View>
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            headerBackTitle: '',
+            headerTintColor: Colors.brandColor,
+            title: 'Loading Party...',
+            headerLeft: () => (
+              <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+                <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+              </TouchableOpacity>
+            ),
+          }}
+        />
+        <ShimmerPartyDetail />
+      </>
     )
   }
 
   if (!detail) {
     return (
       <View style={s.center}>
-        <Stack.Screen options={{ title: 'Party Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
-        <Text style={s.errorText}>Party not found</Text>
+        <Text style={s.errorText}>{error ?? 'Party not found'}</Text>
         <TouchableOpacity style={s.retryBtn} onPress={runSync}>
           <Text style={s.retryText}>Retry</Text>
         </TouchableOpacity>
@@ -225,6 +306,7 @@ export default function PartyDetailScreen() {
 
   const salesDue = parseFloat(summary.sales?.amount_due || '0')
   const purchaseDue = parseFloat(summary.purchases?.amount_due || '0')
+  const isZeroDue = salesDue === 0 && purchaseDue === 0
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -235,9 +317,15 @@ export default function PartyDetailScreen() {
     >
       <Stack.Screen
         options={{
-          title: detail.partyName,
           headerShown: true,
-          headerBackButtonDisplayMode: 'minimal',
+          headerBackTitle: '',
+          headerTintColor: Colors.brandColor,
+          title: detail?.partyName ?? 'Party Detail',
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+              <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+            </TouchableOpacity>
+          ),
           headerRight: () => (
             <TouchableOpacity
               style={s.editBtn}
@@ -300,29 +388,49 @@ export default function PartyDetailScreen() {
       </View>
 
       {/* ── Summary cards ──────────────────────────────────────────────────── */}
-      <View style={s.summaryRow}>
-        {/* Sales summary */}
-        <View style={[s.summaryCard, s.summaryCardSales]}>
-          <Text style={s.summaryCardTitle}>Sales</Text>
-          <View style={s.statsGrid}>
-            <Stat label="Invoiced" value={formatAmount(summary.sales?.total_invoiced || '0')} accent="green" />
-            <Stat label="Received" value={formatAmount(summary.sales?.amount_received || '0')} />
-            <Stat label="Due" value={formatAmount(summary.sales?.amount_due || '0')} accent={salesDue > 0 ? 'red' : undefined} />
-            <Stat label="Invoices" value={`${summary.sales?.invoice_count || 0} (${summary.sales?.unpaid_count || 0} unpaid)`} />
+      {isZeroDue ? (
+        <View style={s.sideBySideRow}>
+          {/* Sales Card */}
+          <View style={[s.summaryCard, s.summaryCardSales, s.flex1]}>
+            <Text style={s.summaryCardTitle}>Invoiced (Sales)</Text>
+            <Text style={[s.statValue, s.accentGreen, { fontSize: 16 }]}>
+              {formatAmount(summary.sales?.total_invoiced || '0')}
+            </Text>
           </View>
-        </View>
 
-        {/* Purchase summary */}
-        <View style={[s.summaryCard, s.summaryCardPurchase]}>
-          <Text style={s.summaryCardTitle}>Purchases</Text>
-          <View style={s.statsGrid}>
-            <Stat label="Billed" value={formatAmount(summary.purchases?.total_billed || '0')} accent="red" />
-            <Stat label="Paid" value={formatAmount(summary.purchases?.amount_paid_out || '0')} />
-            <Stat label="Due" value={formatAmount(summary.purchases?.amount_due || '0')} accent={purchaseDue > 0 ? 'amber' : undefined} />
-            <Stat label="Bills" value={`${summary.purchases?.bill_count || 0} (${summary.purchases?.unpaid_count || 0} unpaid)`} />
+          {/* Purchase Card */}
+          <View style={[s.summaryCard, s.summaryCardPurchase, s.flex1]}>
+            <Text style={s.summaryCardTitle}>Billed (Purchase)</Text>
+            <Text style={[s.statValue, s.accentRed, { fontSize: 16 }]}>
+              {formatAmount(summary.purchases?.total_billed || '0')}
+            </Text>
           </View>
         </View>
-      </View>
+      ) : (
+        <View style={s.summaryRow}>
+          {/* Sales summary */}
+          <View style={[s.summaryCard, s.summaryCardSales]}>
+            <Text style={s.summaryCardTitle}>Sales</Text>
+            <View style={s.statsGrid}>
+              <Stat label="Invoiced" value={formatAmount(summary.sales?.total_invoiced || '0')} accent="green" />
+              <Stat label="Received" value={formatAmount(summary.sales?.amount_received || '0')} />
+              <Stat label="Due" value={formatAmount(summary.sales?.amount_due || '0')} accent={salesDue > 0 ? 'red' : undefined} />
+              <Stat label="Invoices" value={`${summary.sales?.invoice_count || 0} (${summary.sales?.unpaid_count || 0} unpaid)`} />
+            </View>
+          </View>
+
+          {/* Purchase summary */}
+          <View style={[s.summaryCard, s.summaryCardPurchase]}>
+            <Text style={s.summaryCardTitle}>Purchases</Text>
+            <View style={s.statsGrid}>
+              <Stat label="Billed" value={formatAmount(summary.purchases?.total_billed || '0')} accent="red" />
+              <Stat label="Paid" value={formatAmount(summary.purchases?.amount_paid_out || '0')} />
+              <Stat label="Due" value={formatAmount(summary.purchases?.amount_due || '0')} accent={purchaseDue > 0 ? 'amber' : undefined} />
+              <Stat label="Bills" value={`${summary.purchases?.bill_count || 0} (${summary.purchases?.unpaid_count || 0} unpaid)`} />
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* ── Invoice tabs ───────────────────────────────────────────────────── */}
       <View style={s.tabsCard}>
@@ -415,6 +523,8 @@ const s = StyleSheet.create({
 
   // ── Summary cards ──────────────────────────────────────────────────────────
   summaryRow: { flexDirection: 'column', gap: 10, marginBottom: 14 },
+  sideBySideRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  flex1: { flex: 1 },
   summaryCard: { borderRadius: 12, padding: 12, borderWidth: 0.5 },
   summaryCardSales: { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' },
   summaryCardPurchase: { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' },
@@ -466,7 +576,7 @@ const s = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: Colors.brandColor,
   },
-  typePillText: { fontSize: 10, fontWeight: '500', color: '#1D4ED8' },
+  typePillText: { fontSize: 10, fontWeight: '500', color: Colors.brandColor },
   invoiceDates: { fontSize: 11, color: '#9CA3AF' },
   invoiceRight: { alignItems: 'flex-end', gap: 3 },
   invoiceTotal: { fontSize: 14, fontWeight: '700', color: '#059669' },

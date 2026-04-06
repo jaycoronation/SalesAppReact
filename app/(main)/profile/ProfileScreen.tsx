@@ -4,7 +4,7 @@ import { SessionManager } from '@/utils/sessionManager';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import NotificationBell from '@/components/NotificationBell';
 
 interface UserProfile {
   user_id: string;
@@ -32,6 +33,9 @@ interface UserProfile {
   address_line2?: string;
   is_active?: string;
 }
+
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -74,6 +78,20 @@ export default function ProfileScreen() {
     );
   }
 
+  const editParams = {
+    name: profile?.name,
+    email: profile?.email,
+    contact_no: profile?.contact_no,
+    country_code: profile?.country_code,
+    country_id: profile?.country_id,
+    state_id: profile?.state_id,
+    city_id: profile?.city_id,
+    pincode: profile?.pincode,
+    address_line1: profile?.address_line1,
+    address_line2: profile?.address_line2,
+    profile_pic: profile?.profile_pic,
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -92,28 +110,19 @@ export default function ProfileScreen() {
             <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={28} color="#FFF" />
             </TouchableOpacity>
+
             <Text style={styles.headerTitle}>My Profile</Text>
-            <TouchableOpacity
-              style={styles.editBtnTop}
-              onPress={() => router.push({
-                pathname: '../../profile/EditProfileScreen',
-                params: {
-                  name: profile?.name,
-                  email: profile?.email,
-                  contact_no: profile?.contact_no,
-                  country_code: profile?.country_code,
-                  country_id: profile?.country_id,
-                  state_id: profile?.state_id,
-                  city_id: profile?.city_id,
-                  pincode: profile?.pincode,
-                  address_line1: profile?.address_line1,
-                  address_line2: profile?.address_line2,
-                  profile_pic: profile?.profile_pic
-                }
-              })}
-            >
-              <Ionicons name="create-outline" size={24} color="#FFF" />
-            </TouchableOpacity>
+
+            {/* Right side: notification bell + edit */}
+            <View style={styles.headerRight}>
+              <NotificationBell color="#FFF" />
+              <TouchableOpacity
+                style={styles.editBtnTop}
+                onPress={() => router.push({ pathname: '../../profile/EditProfileScreen', params: editParams })}
+              >
+                <Ionicons name="create-outline" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.profileInfoMain}>
@@ -151,28 +160,13 @@ export default function ProfileScreen() {
           <DetailItem
             icon="location-outline"
             label="Location"
-            value="Gujarat, India" // Placeholder if not in API
+            value="Gujarat, India"
           />
 
           <TouchableOpacity
             style={styles.editActionButton}
             activeOpacity={0.8}
-            onPress={() => router.push({
-              pathname: '../../profile/EditProfileScreen',
-              params: {
-                name: profile?.name,
-                email: profile?.email,
-                contact_no: profile?.contact_no,
-                country_code: profile?.country_code,
-                country_id: profile?.country_id,
-                state_id: profile?.state_id,
-                city_id: profile?.city_id,
-                pincode: profile?.pincode,
-                address_line1: profile?.address_line1,
-                address_line2: profile?.address_line2,
-                profile_pic: profile?.profile_pic
-              }
-            })}
+            onPress={() => router.push({ pathname: '../../profile/EditProfileScreen', params: editParams })}
           >
             <LinearGradient
               colors={[Colors.brandColor, '#c10e1a']}
@@ -189,7 +183,13 @@ export default function ProfileScreen() {
         {/* ── Settings Section ──────────────────────────────────────────────── */}
         <View style={styles.settingsSection}>
           <Text style={styles.sectionTitle}>Account Settings</Text>
-          <SettingItem icon="notifications-outline" label="Notifications" />
+
+          {/* ← Notifications now navigates to NotificationScreen */}
+          <SettingItem
+            icon="notifications-outline"
+            label="Notifications"
+            onPress={() => router.push('/notification/NotificationScreen')}
+          />
           <SettingItem icon="shield-checkmark-outline" label="Security" />
           <SettingItem icon="help-circle-outline" label="Help & Support" />
 
@@ -209,6 +209,8 @@ export default function ProfileScreen() {
   );
 }
 
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
 function DetailItem({ icon, label, value }: { icon: any; label: string; value: string }) {
   return (
     <View style={styles.detailItem}>
@@ -223,9 +225,17 @@ function DetailItem({ icon, label, value }: { icon: any; label: string; value: s
   );
 }
 
-function SettingItem({ icon, label }: { icon: any; label: string }) {
+function SettingItem({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: any;
+  label: string;
+  onPress?: () => void;
+}) {
   return (
-    <TouchableOpacity style={styles.settingItem} activeOpacity={0.6}>
+    <TouchableOpacity style={styles.settingItem} activeOpacity={0.6} onPress={onPress}>
       <View style={styles.settingLeft}>
         <Ionicons name={icon} size={22} color="#4B5563" />
         <Text style={styles.settingLabel}>{label}</Text>
@@ -234,6 +244,8 @@ function SettingItem({ icon, label }: { icon: any; label: string }) {
     </TouchableOpacity>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
@@ -261,6 +273,13 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
   headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+
   editBtnTop: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-end' },
 
   profileInfoMain: { alignItems: 'center' },
@@ -277,7 +296,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   avatar: { width: 102, height: 102, borderRadius: 51 },
-  avatarPlaceholder: { width: 102, height: 102, borderRadius: 51, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center' },
+  avatarPlaceholder: {
+    width: 102,
+    height: 102,
+    borderRadius: 51,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   avatarInitial: { fontSize: 40, fontWeight: '700', color: Colors.brandColor },
   cameraBtn: {
     position: 'absolute',
@@ -295,7 +321,7 @@ const styles = StyleSheet.create({
   userName: { fontSize: 24, fontWeight: '800', color: '#FFF', marginBottom: 4 },
   userEmail: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
 
-  // Details
+  // Details card
   detailsContainer: {
     backgroundColor: '#FFF',
     marginHorizontal: 20,
@@ -326,11 +352,7 @@ const styles = StyleSheet.create({
   detailLabel: { fontSize: 12, color: '#9CA3AF', marginBottom: 2 },
   detailValue: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
 
-  editActionButton: {
-    marginTop: 10,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
+  editActionButton: { marginTop: 10, borderRadius: 12, overflow: 'hidden' },
   actionGradient: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -340,8 +362,14 @@ const styles = StyleSheet.create({
   editActionText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 
   // Settings
-  settingsSection: { marginTop: 25, paddingHorizontal: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1F2937', marginBottom: 15, paddingLeft: 4 },
+  settingsSection: { marginTop: 25, paddingHorizontal: 20, marginBottom: 35 },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 15,
+    paddingLeft: 4,
+  },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',

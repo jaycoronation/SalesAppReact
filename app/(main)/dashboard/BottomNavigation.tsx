@@ -6,23 +6,36 @@ import { BlurView } from 'expo-blur';
 import React, { useEffect, useRef } from 'react';
 import {
     Animated,
-    Platform,
+    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
 
+// ── Icons ────────────────────────────────────────────────
+const ic_dashboard = require('@/assets/images/ic_dashboard.png');
+const ic_dashboard_selected = require('@/assets/images/ic_dashboard_selected.png');
+const ic_invoice = require('@/assets/images/ic_invoice.png');
+const ic_invoice_selected = require('@/assets/images/ic_invoice_selected.png');
+const ic_parties = require('@/assets/images/ic_parties.png');
+const ic_parties_selected = require('@/assets/images/ic_parties_selected.png');
+const ic_payables = require('@/assets/images/ic_payables.png');
+const ic_payables_selected = require('@/assets/images/ic_payables_selected.png');
+const ic_receivables = require('@/assets/images/ic_receivables.png');
+const ic_receivables_selected = require('@/assets/images/ic_receivables_selected.png');
+
 import {
     createNavigationContainerRef
 } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ── Your screens ─────────────────────────────────────────
 import { Colors } from '@/utils/colors';
+import SalesInvoiceScreen from '../invoice/SalesInvoiceScreen';
 import PurchaseRegisterScreen from '../others/PurchaseRegisterScreen';
+import SalesRegisterScreen from '../others/SalesRegisterScreen';
 import PartyListScreen from '../parties/PartyListScreen';
-import PaymentListScreen from '../payments/PaymentListScreen';
-import ProfileScreen from '../profile/ProfileScreen';
 import DashboardScreen from './dashboard_new';
 
 // ── Navigation Ref (for logout) ───────────────────────────
@@ -30,24 +43,25 @@ export const navigationRef = createNavigationContainerRef();
 
 // ── Types ────────────────────────────────────────────────
 type RootTabParamList = {
-    Dashboard: undefined;
     Parties: undefined;
+    Invoices: undefined;
+    Dashboard: undefined;
     Receivables: undefined;
-    Payments: undefined;
-    Profile: undefined;
+    Payables: undefined;
 };
 
 // ── Tabs Meta ────────────────────────────────────────────
 const TABS = [
-    { route: 'Dashboard', label: 'Dashboard', icon: '⊞' },
-    { route: 'Parties', label: 'Parties', icon: '✦' },
-    { route: 'Receivables', label: 'Receivables', icon: '↙' },
-    { route: 'Payments', label: 'Payments', icon: '↗' },
-    { route: 'Profile', label: 'Profile', icon: '◎' },
+    { route: 'Parties', label: 'Parties', icon: ic_parties, iconSelected: ic_parties_selected },
+    { route: 'Invoices', label: 'Invoices', icon: ic_invoice, iconSelected: ic_invoice_selected },
+    { route: 'Dashboard', label: 'Dashboard', icon: ic_dashboard, iconSelected: ic_dashboard_selected },
+    { route: 'Receivables', label: 'Receivables', icon: ic_receivables, iconSelected: ic_receivables_selected },
+    { route: 'Payables', label: 'Payables', icon: ic_payables, iconSelected: ic_payables_selected }
 ];
 
 // ── Custom Tab Bar ───────────────────────────────────────
 const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
+    const insets = useSafeAreaInsets();
     const scales = useRef(TABS.map(() => new Animated.Value(1))).current;
 
     useEffect(() => {
@@ -62,7 +76,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
     }, [state.index]);
 
     return (
-        <View style={styles.wrapper}>
+        <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <BlurView intensity={80} tint="light" style={styles.blurContainer}>
                 {TABS.map((tab, idx) => {
                     const focused = state.index === idx;
@@ -74,17 +88,16 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
                             style={styles.tabItem}
                             activeOpacity={0.8}
                         >
-                            <Animated.Text
+                            <Animated.Image
+                                source={focused ? tab.iconSelected : tab.icon}
                                 style={[
                                     styles.icon,
                                     {
-                                        color: focused ? Colors.brandColor : '#aaa',
+                                        tintColor: focused ? Colors.brandColor : '#aaa',
                                         transform: [{ scale: scales[idx] }],
                                     },
                                 ]}
-                            >
-                                {tab.icon}
-                            </Animated.Text>
+                            />
 
                             <Text
                                 style={{
@@ -113,14 +126,15 @@ const AppNavigator = () => {
     return (
         <>
             <Tab.Navigator
+                initialRouteName="Dashboard"
                 screenOptions={{ headerShown: false, }} // ✅ FULL SCREEN
                 tabBar={(props) => <CustomTabBar {...props} />}
             >
-                <Tab.Screen name="Dashboard" component={DashboardScreen} />
                 <Tab.Screen name="Parties" component={PartyListScreen} />
-                <Tab.Screen name="Receivables" component={PurchaseRegisterScreen} />
-                <Tab.Screen name="Payments" component={PaymentListScreen} />
-                <Tab.Screen name="Profile" component={ProfileScreen} />
+                <Tab.Screen name="Invoices" component={SalesInvoiceScreen} />
+                <Tab.Screen name="Dashboard" component={DashboardScreen} />
+                <Tab.Screen name="Receivables" component={SalesRegisterScreen} />
+                <Tab.Screen name="Payables" component={PurchaseRegisterScreen} />
             </Tab.Navigator>
         </>
     );
@@ -135,7 +149,6 @@ const styles = StyleSheet.create({
         bottom: 0,
         width: '100%',
         paddingHorizontal: 12,
-        paddingBottom: Platform.OS === 'ios' ? 25 : 10,
     },
 
     blurContainer: {
@@ -156,7 +169,9 @@ const styles = StyleSheet.create({
     },
 
     icon: {
-        fontSize: 22,
+        width: 24,
+        height: 24,
+        resizeMode: 'contain',
     },
 
     activeDot: {

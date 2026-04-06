@@ -5,8 +5,10 @@ import { Colors } from '@/utils/colors'
 import { Q } from '@nozbe/watermelondb'
 import { Stack, router } from 'expo-router'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import NotificationBell from '@/components/NotificationBell'
 import {
   ActivityIndicator,
+  DeviceEventEmitter,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -15,10 +17,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { FinancialYearPicker } from '@/components/FinancialYearPicker'
+import { MonthYearPicker } from '@/components/MonthYearPicker'
+import {
+  getCurrentFY,
+  MONTH_SHORT,
+} from '@/utils/fiscalYear'
+import { SessionManager } from '@/utils/sessionManager'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const MONTH = 2
-const YEAR = 2026
 
 const MONTH_NAMES: Record<number, string> = {
   1: 'January', 2: 'February', 3: 'March', 4: 'April',
@@ -127,6 +134,12 @@ function SaleCard({ item }: { item: SaleEntry }) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SalesListScreen() {
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [selectedFY, setSelectedFY] = useState(getCurrentFY())
+  const [fyPickerVisible, setFyPickerVisible] = useState(false)
+  const [pickerVisible, setPickerVisible] = useState(false)
+
   const [entries, setEntries] = useState<SaleEntry[]>([])
   const [totalRecords, setTotal] = useState(0)
   const [syncing, setSyncing] = useState(false)
@@ -143,15 +156,15 @@ export default function SalesListScreen() {
 
     const records = await collection
       .query(
-        Q.where('month', MONTH),
-        Q.where('year', YEAR),
+        Q.where('month', selectedMonth),
+        Q.where('year', selectedYear),
         Q.sortBy('gross_total', Q.desc),
       )
       .fetch()
 
     setTotal(records.length)
     setEntries(records)
-  }, [])
+  }, [selectedMonth, selectedYear])
 
   // ── Load a page (used for infinite scroll when not filtering) ─────────────
   const loadPage = useCallback(async (page: number, replace: boolean) => {
@@ -159,8 +172,8 @@ export default function SalesListScreen() {
 
     const records = await collection
       .query(
-        Q.where('month', MONTH),
-        Q.where('year', YEAR),
+        Q.where('month', selectedMonth),
+        Q.where('year', selectedYear),
         Q.where('page', page),
         Q.sortBy('gross_total', Q.desc),
       )
@@ -168,7 +181,7 @@ export default function SalesListScreen() {
 
     if (page === 1) {
       const all = await collection
-        .query(Q.where('month', MONTH), Q.where('year', YEAR))
+        .query(Q.where('month', selectedMonth), Q.where('year', selectedYear))
         .fetchCount()
       setTotal(all)
       allLoadedRef.current = false
@@ -180,11 +193,11 @@ export default function SalesListScreen() {
     }
 
     setEntries((prev) => (replace ? records : [...prev, ...records]))
-  }, [])
+  }, [selectedMonth, selectedYear])
 
   // ── Sync then reload ───────────────────────────────────────────────────────
   const runSync = useCallback(async () => {
-    await syncSales(MONTH, YEAR)
+    await syncSales(selectedMonth, selectedYear)
     pageRef.current = 1
     // If search or filter active, load all; else load page 1
     if (search.trim() || activeTab !== 'all') {
@@ -192,13 +205,33 @@ export default function SalesListScreen() {
     } else {
       await loadPage(1, true)
     }
-  }, [loadPage, loadAll, search, activeTab])
+  }, [loadPage, loadAll, search, activeTab, selectedMonth, selectedYear])
+
+  useEffect(() => {
+    const loadInitial = async () => {
+      const saved = await SessionManager.getDashFilter();
+      if (saved) {
+        setSelectedMonth(saved.month);
+        setSelectedYear(saved.year);
+        setSelectedFY(saved.fy);
+      }
+    };
+    loadInitial();
+
+    const sub = DeviceEventEmitter.addListener('SHARED_FILTER_CHANGED', (data: any) => {
+      setSelectedMonth(data.month);
+      setSelectedYear(data.year);
+      setSelectedFY(data.fy);
+    });
+
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     loadPage(1, true)
     setSyncing(true)
     runSync().finally(() => setSyncing(false))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadPage, runSync])
 
   // When search or tab changes, load all records for in-memory filtering
   useEffect(() => {
@@ -251,10 +284,31 @@ export default function SalesListScreen() {
   }, [entries, activeTab, search])
 
   // ── Loading state ──────────────────────────────────────────────────────────
+  const handleFilterApply = useCallback((month: number, year: number) => {
+    setSelectedMonth(month)
+    setSelectedYear(year)
+    SessionManager.setDashFilter(month, year, selectedFY)
+    DeviceEventEmitter.emit('SHARED_FILTER_CHANGED', { month, year, fy: selectedFY })
+  }, [selectedFY])
+
+  const handleFYApply = useCallback((fy: string) => {
+    setSelectedFY(fy)
+    const d = new Date()
+    const curFY = getCurrentFY()
+    let m = 4, y = parseInt(fy.split('-')[0])
+    if (fy === curFY) {
+      m = d.getMonth() + 1
+      y = d.getFullYear()
+    }
+    setSelectedMonth(m)
+    setSelectedYear(y)
+    SessionManager.setDashFilter(m, y, fy)
+    DeviceEventEmitter.emit('SHARED_FILTER_CHANGED', { month: m, year: y, fy })
+  }, [])
+
   if (entries.length === 0 && syncing) {
     return (
       <View style={styles.emptyContainer}>
-        <Stack.Screen options={{ title: 'Sales', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
         <ActivityIndicator size="large" color={Colors.brandColor} />
         <Text style={styles.emptyText}>Loading sales…</Text>
         <Text style={styles.emptyHint}>Fetching from local database</Text>
@@ -265,9 +319,8 @@ export default function SalesListScreen() {
   if (entries.length === 0 && !syncing) {
     return (
       <View style={styles.emptyContainer}>
-        <Stack.Screen options={{ title: 'Sales', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
-        <Text style={styles.emptyText}>No sales found</Text>
-        <Text style={styles.emptyHint}>{MONTH_NAMES[MONTH]} {YEAR}</Text>
+        <Text style={styles.emptyText}>No sales records found</Text>
+        <Text style={styles.emptyHint}>{MONTH_SHORT[selectedMonth]} {selectedYear}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={runSync}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
@@ -278,15 +331,65 @@ export default function SalesListScreen() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Sales', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
+      <Stack.Screen
+        options={{
+          title: 'Sales',
+          headerShown: true,
+          headerBackTitle: '',
+          headerBackVisible: true,
+          headerTintColor: Colors.brandColor,
+          headerRight: () => <NotificationBell />,
+        }}
+      />
+
+      <FinancialYearPicker
+        visible={fyPickerVisible}
+        selectedFY={selectedFY}
+        onApply={handleFYApply}
+        onClose={() => setFyPickerVisible(false)}
+      />
+
+      <MonthYearPicker
+        visible={pickerVisible}
+        month={selectedMonth}
+        year={selectedYear}
+        selectedFY={selectedFY}
+        onApply={handleFilterApply}
+        onClose={() => setPickerVisible(false)}
+      />
+
 
       {/* Sticky header */}
       <View style={styles.header}>
+        <View style={styles.headerFilters}>
+          <View />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              style={styles.filterBtn}
+              onPress={() => setFyPickerVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.filterBtnIcon}>📅</Text>
+              <Text style={styles.filterBtnText}>{selectedFY}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.filterBtn}
+              onPress={() => setPickerVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.filterBtnText}>
+                {MONTH_SHORT[selectedMonth]} {selectedYear}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <View style={styles.titleRow}>
           <View>
             <Text style={styles.headerTitle}>Sales</Text>
             <Text style={styles.headerSub}>
-              {MONTH_NAMES[MONTH]} {YEAR} ·{' '}
+              {MONTH_SHORT[selectedMonth]} {selectedYear} ·{' '}
               {search.trim() || activeTab !== 'all'
                 ? `${filtered.length} of ${totalRecords}`
                 : totalRecords}{' '}
@@ -417,6 +520,25 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     marginBottom: 10,
   },
+  headerFilters: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterBtnIcon: { fontSize: 13 },
+  filterBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
   searchIcon: { fontSize: 14, marginRight: 8 },
   searchInput: { flex: 1, fontSize: 14, color: '#111827', padding: 0 },
   clearBtn: { fontSize: 13, color: '#9CA3AF', paddingLeft: 8 },

@@ -45,6 +45,7 @@ export const apiPost = async (
       body: isFormData ? body.toString() : JSON.stringify(body),
     });
 
+    console.log("Response", body.toString());
     const data = await response.json();
 
     return {

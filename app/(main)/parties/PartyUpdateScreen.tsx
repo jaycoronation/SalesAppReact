@@ -1,6 +1,7 @@
 import { ApiEndPoints } from '@/network/ApiEndPoint'
 import { Colors } from '@/utils/colors'
 import { SessionManager } from '@/utils/sessionManager'
+import { Ionicons } from '@expo/vector-icons'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import React, { useState } from 'react'
 import {
@@ -206,6 +207,12 @@ export default function PartyUpdateScreen() {
           title: 'Edit Party',
           headerShown: true,
           headerBackButtonDisplayMode: 'minimal',
+          headerTintColor: Colors.brandColor,
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+              <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+            </TouchableOpacity>
+          ),
           headerRight: () => (
             <TouchableOpacity
               style={s.headerSaveBtn}
@@ -238,6 +245,7 @@ export default function PartyUpdateScreen() {
               placeholder="Enter party name"
               placeholderTextColor="#9CA3AF"
               returnKeyType="next"
+              editable={false}
             />
           </Field>
 
@@ -250,6 +258,7 @@ export default function PartyUpdateScreen() {
               placeholderTextColor="#9CA3AF"
               autoCapitalize="characters"
               returnKeyType="next"
+              editable={false}
             />
           </Field>
 
@@ -262,7 +271,7 @@ export default function PartyUpdateScreen() {
                   <TouchableOpacity
                     key={opt.value}
                     style={[s.segment, active && s.segmentActive]}
-                    onPress={() => set('party_type', opt.value)}
+                    // onPress={() => set('party_type', opt.value)}
                     activeOpacity={0.7}
                   >
                     <Text style={[s.segmentText, active && s.segmentTextActive]}>

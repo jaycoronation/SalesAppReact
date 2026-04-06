@@ -117,6 +117,10 @@ function getCollection() {
 // ─── Sync ─────────────────────────────────────────────────────────────────────
 
 export async function syncPartyDetail(partyId: string): Promise<void> {
+    if (!partyId) {
+        console.warn('[syncPartyDetail] No partyId provided');
+        return;
+    }
     const { isConnected } = await NetInfo.fetch()
     if (!isConnected) {
         console.log(`Offline — serving cached detail for party ${partyId}`)
@@ -156,6 +160,7 @@ export async function syncPartyDetail(partyId: string): Promise<void> {
 // ─── Load ─────────────────────────────────────────────────────────────────────
 
 export async function loadPartyDetail(partyId: string): Promise<PartyDetail | null> {
+    if (!partyId) return null;
     const collection = getCollection()
     if (!collection) return null
 

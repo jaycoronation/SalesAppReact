@@ -49,6 +49,7 @@ export default class SaleDetail extends Model {
     @field('sgst_9_on_sales') sgst9OnSales!: string
     @field('pf_charge') pfCharge!: string
     @field('rounding_off') roundingOff!: string
+    @field('tds') tds!: string
 
     // Line items stored as JSON string (WatermelonDB has no array type)
     @field('line_items_json') lineItemsJson!: string

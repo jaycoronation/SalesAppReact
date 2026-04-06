@@ -1,9 +1,11 @@
+import { ShimmerBox } from '@/components/Shimmer'
 import { database } from '@/Database'
 import PaymentEntry from '@/Database/models/PaymentEntry'
 import { syncPayments } from '@/Services/paymentSync'
 import { Colors } from '@/utils/colors'
+import { Ionicons } from '@expo/vector-icons'
 import { Q } from '@nozbe/watermelondb'
-import { Stack } from 'expo-router'
+import { router, Stack, useLocalSearchParams } from 'expo-router'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -111,12 +113,49 @@ function PaymentCard({ item }: { item: PaymentEntry }) {
   )
 }
 
+// ─── Shimmer Loading Layout ──────────────────────────────────────────────────
+
+function ShimmerPaymentList() {
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.headerTopRow}>
+          <ShimmerBox width={150} height={18} />
+        </View>
+      </View>
+      <View style={{ paddingHorizontal: 16, gap: 10 }}>
+        {[1, 2, 3, 4, 5, 6].map(i => (
+          <View key={i} style={cardStyles.card}>
+            <View style={cardStyles.topRow}>
+              <ShimmerBox width="60%" height={16} />
+              <ShimmerBox width={80} height={18} />
+            </View>
+            <ShimmerBox width="40%" height={12} style={{ marginTop: 4, marginBottom: 8 }} />
+            <View style={cardStyles.midRow}>
+              <ShimmerBox width="30%" height={12} />
+              <ShimmerBox width="20%" height={12} />
+            </View>
+            <View style={[cardStyles.bottomRow, { marginTop: 12 }]}>
+              <ShimmerBox width={60} height={20} borderRadius={5} />
+              <ShimmerBox width="40%" height={12} />
+              <ShimmerBox width={50} height={20} borderRadius={5} style={{ marginLeft: 'auto' }} />
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function PaymentListScreen() {
+  const { partyId, partyName } = useLocalSearchParams<{ partyId?: string; partyName?: string }>()
+
   const [entries, setEntries] = useState<PaymentEntry[]>([])
   const [totalRecords, setTotal] = useState(0)
   const [syncing, setSyncing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const pageRef = useRef(1)
@@ -171,9 +210,14 @@ export default function PaymentListScreen() {
 
   // ── Sync then reload ───────────────────────────────────────────────────────
   const runSync = useCallback(async () => {
-    await syncPayments(MONTH, YEAR)
-    pageRef.current = 1
-    await loadPage(1, true)
+    setError(null)
+    try {
+      await syncPayments(MONTH, YEAR)
+      pageRef.current = 1
+      await loadPage(1, true)
+    } catch (e: any) {
+      setError(e.message || 'Sync failed')
+    }
   }, [loadPage])
 
   // On mount
@@ -205,20 +249,30 @@ export default function PaymentListScreen() {
   // ── Loading state ──────────────────────────────────────────────────────────
   if (entries.length === 0 && syncing) {
     return (
-      <View style={styles.emptyContainer}>
-        <Stack.Screen options={{ title: 'Payments', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
-        <ActivityIndicator size="large" color={Colors.brandColor} />
-        <Text style={styles.emptyText}>Loading payments…</Text>
-        <Text style={styles.emptyHint}>Fetching from local database</Text>
-      </View>
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            headerBackTitle: '',
+            headerBackVisible: false,
+            headerLeft: () => (
+              <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+                <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+              </TouchableOpacity>
+            ),
+            headerTintColor: Colors.brandColor,
+            title: partyName ? `${partyName} Payments` : 'Payments',
+          }}
+        />
+        <ShimmerPaymentList />
+      </>
     )
   }
 
   if (entries.length === 0 && !syncing) {
     return (
       <View style={styles.emptyContainer}>
-        <Stack.Screen options={{ title: 'Payments', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
-        <Text style={styles.emptyText}>No payments found</Text>
+        <Text style={styles.emptyText}>{error ?? 'No payments found'}</Text>
         <Text style={styles.emptyHint}>{MONTH_NAMES[MONTH]} {YEAR}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={runSync}>
           <Text style={styles.retryText}>Retry</Text>
@@ -232,10 +286,18 @@ export default function PaymentListScreen() {
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          headerShown: true, headerBackButtonDisplayMode: "minimal",
-          title: 'Payments',
+          headerShown: true,
+          headerBackTitle: '',
+          headerBackVisible: false,
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+              <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+            </TouchableOpacity>
+          ),
+          headerTintColor: Colors.brandColor,
+          title: partyName ? `${partyName} Payments` : 'Payments',
           headerRight: () => (
-            <View style={{ marginRight: 12 }}>
+            <View style={{ marginRight: 12, flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity onPress={() => setIsSearchVisible(!isSearchVisible)}>
                 <Text style={styles.searchIcon}>🔍</Text>
               </TouchableOpacity>
@@ -249,7 +311,7 @@ export default function PaymentListScreen() {
         {/* Title row */}
         <View style={styles.headerTopRow}>
           <View>
-            <Text style={styles.headerTitle}>Payments</Text>
+            {/* <Text style={styles.headerTitle}>Payments</Text> */}
             <Text style={styles.headerSub}>
               {MONTH_NAMES[MONTH]} {YEAR} · {totalRecords} records
             </Text>

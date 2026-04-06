@@ -1,12 +1,14 @@
-
 import { RecentInvoiceItem } from '@/Database/models/dashboardoverview';
 import { loadDashboardV2 } from '@/Services/DashboardV2Sync';
 import { syncRecentInvoices } from '@/Services/RecentInvoicesSync';
+import { SessionManager } from '@/utils/sessionManager';
 import { Colors } from '@/utils/colors';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  DeviceEventEmitter,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -15,6 +17,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ShimmerBox } from '@/components/Shimmer';
+import { FinancialYearPicker } from '@/components/FinancialYearPicker';
+import { MonthYearPicker } from '@/components/MonthYearPicker';
+import {
+  getCurrentFY,
+  MONTH_SHORT,
+} from '@/utils/fiscalYear';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -46,7 +55,7 @@ function RecentInvoiceRow({ item }: { item: RecentInvoiceItem }) {
       activeOpacity={0.7}
       onPress={() =>
         router.push({
-          pathname: '../../sale/SaleDetailScreen',
+          pathname: '/sales/SaleDetailScreen',
           params: { saleId: item.sale_id },
         })
       }
@@ -71,12 +80,45 @@ function RecentInvoiceRow({ item }: { item: RecentInvoiceItem }) {
   )
 }
 
+// ─── Shimmer Loading Layout ──────────────────────────────────────────────────
+
+function ShimmerRecentInvoices() {
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <ShimmerBox height={40} borderRadius={10} />
+      </View>
+      <View style={{ paddingHorizontal: 16, gap: 10 }}>
+        {[1, 2, 3, 4, 5, 6].map(i => (
+          <View key={i} style={cardStyles.card}>
+            <View style={cardStyles.topRow}>
+              <ShimmerBox width="60%" height={16} />
+              <ShimmerBox width={80} height={18} />
+            </View>
+            <View style={[cardStyles.midRow, { marginTop: 8 }]}>
+              <ShimmerBox width="40%" height={12} />
+              <ShimmerBox width="30%" height={12} />
+            </View>
+            <View style={[cardStyles.bottomRow, { marginTop: 12 }]}>
+              <ShimmerBox width={60} height={20} borderRadius={6} />
+              <ShimmerBox width="40%" height={12} />
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function RecentInvoicesScreen() {
   const { month, year } = useLocalSearchParams();
-  const selectedMonth = month ? parseInt(month as string) : new Date().getMonth() + 1;
-  const selectedYear = year ? parseInt(year as string) : new Date().getFullYear();
+  const [selectedMonth, setSelectedMonth] = useState(month ? parseInt(month as string) : new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(year ? parseInt(year as string) : new Date().getFullYear());
+  const [selectedFY, setSelectedFY] = useState(getCurrentFY());
+  const [fyPickerVisible, setFyPickerVisible] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
 
   const [invoices, setInvoices] = useState<RecentInvoiceItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -109,6 +151,26 @@ export default function RecentInvoicesScreen() {
   }, [selectedMonth, selectedYear]);
 
   useEffect(() => {
+    const loadInitial = async () => {
+      const saved = await SessionManager.getDashFilter();
+      if (saved) {
+        setSelectedMonth(saved.month);
+        setSelectedYear(saved.year);
+        setSelectedFY(saved.fy);
+      }
+    };
+    loadInitial();
+
+    const sub = DeviceEventEmitter.addListener('SHARED_FILTER_CHANGED', (data: any) => {
+      setSelectedMonth(data.month);
+      setSelectedYear(data.year);
+      setSelectedFY(data.fy);
+    });
+
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
     fetchInvoices();
   }, [fetchInvoices]);
 
@@ -117,6 +179,28 @@ export default function RecentInvoicesScreen() {
     fetchInvoices(true);
   }, [fetchInvoices]);
 
+  const handleFilterApply = useCallback((month: number, year: number) => {
+    setSelectedMonth(month)
+    setSelectedYear(year)
+    SessionManager.setDashFilter(month, year, selectedFY)
+    DeviceEventEmitter.emit('SHARED_FILTER_CHANGED', { month, year, fy: selectedFY })
+  }, [selectedFY])
+
+  const handleFYApply = useCallback((fy: string) => {
+    setSelectedFY(fy)
+    const d = new Date()
+    const curFY = getCurrentFY()
+    let m = 4, y = parseInt(fy.split('-')[0])
+    if (fy === curFY) {
+      m = d.getMonth() + 1
+      y = d.getFullYear()
+    }
+    setSelectedMonth(m)
+    setSelectedYear(y)
+    SessionManager.setDashFilter(m, y, fy)
+    DeviceEventEmitter.emit('SHARED_FILTER_CHANGED', { month: m, year: y, fy })
+  }, [])
+
   const filteredInvoices = invoices.filter(item =>
     item.party_name?.toLowerCase().includes(search.toLowerCase()) ||
     item.voucher_no?.toLowerCase().includes(search.toLowerCase())
@@ -124,18 +208,82 @@ export default function RecentInvoicesScreen() {
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.center}>
-        <Stack.Screen options={{ title: 'Recent Invoices', headerShown: true }} />
-        <ActivityIndicator size="large" color={Colors.brandColor} />
-      </View>
+      <>
+        <Stack.Screen
+          options={{
+            title: 'Recent Sales Invoices',
+            headerShown: true,
+            headerBackTitle: '',
+            headerTintColor: Colors.brandColor,
+            headerLeft: () => (
+              <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+                <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+              </TouchableOpacity>
+            ),
+          }}
+        />
+        <ShimmerRecentInvoices />
+      </>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Recent Invoices', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
+      <Stack.Screen
+        options={{
+          title: 'Recent Sales Invoices',
+          headerShown: true,
+          headerBackTitle: '',
+          headerTintColor: Colors.brandColor,
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+              <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+            </TouchableOpacity>
+          ),
+        }}
+      />
+
+      <FinancialYearPicker
+        visible={fyPickerVisible}
+        selectedFY={selectedFY}
+        onApply={handleFYApply}
+        onClose={() => setFyPickerVisible(false)}
+      />
+
+      <MonthYearPicker
+        visible={pickerVisible}
+        month={selectedMonth}
+        year={selectedYear}
+        selectedFY={selectedFY}
+        onApply={handleFilterApply}
+        onClose={() => setPickerVisible(false)}
+      />
 
       <View style={styles.header}>
+        <View style={styles.headerFilters}>
+          <View />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              style={styles.filterBtn}
+              onPress={() => setFyPickerVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.filterBtnIcon}>📅</Text>
+              <Text style={styles.filterBtnText}>{selectedFY}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.filterBtn}
+              onPress={() => setPickerVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.filterBtnText}>
+                {MONTH_SHORT[selectedMonth]} {selectedYear}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <View style={styles.searchWrap}>
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
@@ -175,7 +323,26 @@ export default function RecentInvoicesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { padding: 16, backgroundColor: '#F3F4F6' },
+  header: { padding: 16, backgroundColor: '#F3F4F6', gap: 12 },
+  headerFilters: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterBtnIcon: { fontSize: 13 },
+  filterBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',

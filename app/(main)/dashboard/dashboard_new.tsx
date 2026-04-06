@@ -1,5 +1,11 @@
+import { FinancialYearPicker } from '@/components/FinancialYearPicker';
+import { MonthYearPicker } from '@/components/MonthYearPicker';
+import NotificationBell from '@/components/NotificationBell';
+import { ShimmerBox } from '@/components/Shimmer';
 import DashboardOverviewV2, {
   AgingBucket,
+  ConversionBlock,
+  ConversionGenerate,
   RecentInvoiceItem,
   StockGradeItem,
   StockOverview,
@@ -12,12 +18,18 @@ import {
   syncUpcomingPayments,
 } from '@/Services/DashboardV2Sync';
 import { Colors } from '@/utils/colors';
+import {
+  getCurrentFY,
+  getFiscalYear,
+  MONTH_SHORT,
+} from '@/utils/fiscalYear';
 import { SessionManager } from '@/utils/sessionManager';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  ActivityIndicator, Animated,
+  DeviceEventEmitter,
   Modal,
   Pressable,
   RefreshControl,
@@ -34,22 +46,6 @@ const NOW = new Date()
 const DEFAULT_MONTH = NOW.getMonth() + 1   // 1–12
 const DEFAULT_YEAR = NOW.getFullYear()
 
-const MONTH_NAMES: Record<number, string> = {
-  1: 'January', 2: 'February', 3: 'March', 4: 'April',
-  5: 'May', 6: 'June', 7: 'July', 8: 'August',
-  9: 'September', 10: 'October', 11: 'November', 12: 'December',
-}
-
-const MONTH_SHORT: Record<number, string> = {
-  1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr',
-  5: 'May', 6: 'Jun', 7: 'Jul', 8: 'Aug',
-  9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec',
-}
-
-function getFiscalYear(month: number, year: number): string {
-  if (month >= 4) return `${year}-${String(year + 1).slice(-2)}`
-  return `${year - 1}-${String(year).slice(-2)}`
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -80,7 +76,166 @@ function statusBadgeStyle(status: string) {
   }
 }
 
+
+// ─── Shimmer ──────────────────────────────────────────────────────────────────
+
+function useShimmerAnim() {
+  const anim = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ])
+    ).start()
+  }, [anim])
+  return anim
+}
+
+function DashboardShimmer() {
+  // Reusable card wrapper
+  function ShimmerCard({ children, style }: { children: React.ReactNode; style?: object }) {
+    return (
+      <View style={[{ backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginBottom: 14, borderWidth: 0.5, borderColor: '#E5E7EB' }, style]}>
+        {children}
+      </View>
+    )
+  }
+
+  // Section header row (title + optional action pill)
+  function ShimmerSectionHeader({ withAction = false }: { withAction?: boolean }) {
+    return (
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <ShimmerBox width={120} height={14} />
+        {withAction && <ShimmerBox width={52} height={22} style={{ borderRadius: 6 }} />}
+      </View>
+    )
+  }
+
+  // A table row with N shimmer cells
+  function ShimmerTableRow({ cols = 4, last = false }: { cols?: number; last?: boolean }) {
+    return (
+      <View style={{
+        flexDirection: 'row', alignItems: 'center', gap: 8,
+        paddingVertical: 9, paddingHorizontal: 10,
+        borderBottomWidth: last ? 0 : 0.5, borderBottomColor: '#F3F4F6',
+      }}>
+        {Array.from({ length: cols }).map((_, i) => (
+          <ShimmerBox key={i} height={12} style={{ flex: 1 }} />
+        ))}
+      </View>
+    )
+  }
+
+  function ShimmerTable({ rows = 3 }: { rows?: number }) {
+    return (
+      <View style={{ borderRadius: 8, borderWidth: 0.5, borderColor: '#E5E7EB', overflow: 'hidden' }}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 7, paddingHorizontal: 10, backgroundColor: '#F3F4F6' }}>
+          {[0, 1, 2, 3].map((i) => <ShimmerBox key={i} height={10} style={{ flex: 1 }} />)}
+        </View>
+        {Array.from({ length: rows }).map((_, i) => (
+          <ShimmerTableRow key={i} last={i === rows - 1} />
+        ))}
+      </View>
+    )
+  }
+
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: '#F3F4F6' }}
+      contentContainerStyle={{ padding: 16 }}
+      showsVerticalScrollIndicator={false}
+      scrollEnabled={false}
+    >
+      {/* Header filter chips */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <ShimmerBox width={90} height={32} style={{ borderRadius: 20 }} />
+        <ShimmerBox width={72} height={32} style={{ borderRadius: 20 }} />
+      </View>
+
+      {/* P&L card — 3-column net row */}
+      <ShimmerCard>
+        <ShimmerSectionHeader />
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+          {[0, 1, 2].map((i) => (
+            <React.Fragment key={i}>
+              <View style={{ flex: 1, gap: 6 }}>
+                <ShimmerBox width={60} height={10} />
+                <ShimmerBox width={80} height={18} />
+              </View>
+              {i < 2 && <View style={{ width: 0.5, backgroundColor: '#E5E7EB', alignSelf: 'stretch', marginHorizontal: 12 }} />}
+            </React.Fragment>
+          ))}
+        </View>
+      </ShimmerCard>
+
+      {/* Conversion Generate card — 2 sub-tables */}
+      <ShimmerCard>
+        <ShimmerSectionHeader />
+        <ShimmerBox width={80} height={11} style={{ marginBottom: 8 }} />
+        <ShimmerTable rows={3} />
+        <View style={{ height: 12 }} />
+        <ShimmerBox width={64} height={11} style={{ marginBottom: 8 }} />
+        <ShimmerTable rows={2} />
+        {/* Net total footer */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: '#E5E7EB' }}>
+          <ShimmerBox width={72} height={14} />
+          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+            <ShimmerBox width={60} height={12} />
+            <ShimmerBox width={80} height={16} />
+          </View>
+        </View>
+        {/* View Breakdown button */}
+        <View style={{ marginTop: 10, borderTopWidth: 0.5, borderTopColor: '#E5E7EB', paddingVertical: 12, alignItems: 'center' }}>
+          <ShimmerBox width={120} height={14} style={{ borderRadius: 4 }} />
+        </View>
+      </ShimmerCard>
+
+      {/* Stock Summary card */}
+      <ShimmerCard>
+        <ShimmerSectionHeader />
+        <ShimmerTable rows={4} />
+      </ShimmerCard>
+
+      {/* KPI row — 2 cards */}
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+        {[0, 1].map((i) => (
+          <View key={i} style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, borderWidth: 0.5, borderColor: '#E5E7EB', gap: 6 }}>
+            <ShimmerBox width={80} height={10} />
+            <ShimmerBox width={90} height={20} />
+            <ShimmerBox width={60} height={10} />
+          </View>
+        ))}
+      </View>
+
+      {/* Recent Invoices card */}
+      <ShimmerCard>
+        <ShimmerSectionHeader withAction />
+        {[0, 1, 2, 3, 4].map((i) => (
+          <View key={i}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 8 }}>
+              <View style={{ flex: 1, gap: 5 }}>
+                <ShimmerBox width="70%" height={13} />
+                <ShimmerBox width="45%" height={10} />
+              </View>
+              <View style={{ alignItems: 'flex-end', gap: 5 }}>
+                <ShimmerBox width={64} height={13} />
+                <ShimmerBox width={44} height={18} style={{ borderRadius: 4 }} />
+              </View>
+            </View>
+            {i < 4 && <View style={{ height: 0.5, backgroundColor: '#F3F4F6' }} />}
+          </View>
+        ))}
+      </ShimmerCard>
+
+      <View style={{ height: 82 }} />
+    </ScrollView>
+  )
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
+
 
 function SectionHeader({
   title, actionLabel, onAction, badge, badgeType = 'neutral',
@@ -141,48 +296,6 @@ function KpiCard({
 
   )
 }
-
-// function AgingBar({ buckets, title }: { buckets: Record<string, AgingBucket>, title: string }) {
-//   const order = ['paid', 'd0_7', 'd7_15', 'd15_30', 'over_30']
-//   const colors = ['#059669', '#2563EB', '#D97706', '#EA580C', '#DC2626']
-//   const total = order.reduce((s, k) => s + parseFloat(buckets[k]?.amount || '0'), 0)
-//   if (!total) return null
-
-//   // Override the first bucket label based on context
-//   const firstBucketLabel = title === 'Receivables' ? 'Received' : 'Paid'
-
-//   return (
-//     <View style={s.agingBarWrap}>
-//       <View style={s.agingBar}>
-//         {order.map((k, i) => {
-//           const pct = (parseFloat(buckets[k]?.amount || '0') / total) * 100
-//           if (pct < 1) return null
-//           return (
-//             <View
-//               key={k}
-//               style={[s.agingSegment, { width: `${pct}%` as any, backgroundColor: colors[i] }]}
-//             />
-//           )
-//         })}
-//       </View>
-//       <View style={s.agingLegend}>
-//         {order.map((k, i) => {
-//           const bucket = buckets[k]
-//           if (!bucket || parseFloat(bucket.amount) === 0) return null
-//           return (
-//             <View key={k} style={s.agingLegendItem}>
-//               <View style={[s.agingDot, { backgroundColor: colors[i] }]} />
-//               <Text style={s.agingLegendLabel}>
-//                 {i === 0 ? firstBucketLabel : bucket.label} ({bucket.count})
-//               </Text>
-//               <Text style={s.agingLegendVal}>{fmt(bucket.amount)}</Text>
-//             </View>
-//           )
-//         })}
-//       </View>
-//     </View>
-//   )
-// }
 
 function AgingBar({
   buckets,
@@ -283,7 +396,7 @@ function RecentInvoiceRow({ item }: { item: RecentInvoiceItem }) {
       activeOpacity={0.7}
       onPress={() =>
         router.push({
-          pathname: '../../sale/SaleDetailScreen',
+          pathname: '/sales/SaleDetailScreen',
           params: { saleId: item.sale_id },
         })
       }
@@ -299,6 +412,110 @@ function RecentInvoiceRow({ item }: { item: RecentInvoiceItem }) {
         </View>
       </View>
     </TouchableOpacity>
+  )
+}
+
+// ─── Conversion / Generate Card ───────────────────────────────────────────────
+
+function ConversionCard({ data }: { data: ConversionGenerate }) {
+  const gradeColors: Record<string, string> = {
+    '202': '#2563EB',
+    '304': '#059669',
+    '316': '#9333EA',
+    'JOBWORK': '#D97706',
+  }
+
+  function fmtQty(v: string) {
+    const n = parseFloat(v)
+    if (!v || isNaN(n)) return '—'
+    return n.toLocaleString('en-IN', { maximumFractionDigits: 2 })
+  }
+
+  function fmtRate(v: string) {
+    const n = parseFloat(v)
+    if (!v || isNaN(n)) return '—'
+    return `₹${n.toFixed(2)}`
+  }
+
+  function ConvBlock({ block, label }: { block: ConversionBlock; label: string }) {
+    const dataRows = block.rows ?? []
+    const total = block.total
+    if (!dataRows.length) return null
+
+
+    return (
+      <View style={{ marginBottom: 12 }}>
+        {/* Sub-section label */}
+        <Text style={cv.blockLabel}>{label}</Text>
+        <View style={st.tableCard}>
+          {/* Header */}
+          <View style={[st.tableRow, st.tableHead]}>
+            <Text style={[st.tableCell, st.tableHeadText, { flex: 0.7 }]}>Grade</Text>
+            <Text style={[st.tableCell, st.tableHeadText, st.right]}>Qty</Text>
+            <Text style={[st.tableCell, st.tableHeadText, st.right]}>Rate ₹</Text>
+            <Text style={[st.tableCell, st.tableHeadText, st.right]}>Value</Text>
+          </View>
+
+          {dataRows.map((row, i) => {
+            const color = gradeColors[row.grade] ?? '#6B7280'
+            const isLast = i === dataRows.length - 1
+            return (
+              <View
+                key={`${row.grade}-${i}`}
+                style={[st.tableRow, isLast && !total && st.tableRowLast]}
+              >
+                <View style={[{ flex: 0.7 }, st.tableCell]}>
+                  <View style={[st.gradePill, { backgroundColor: color + '18' }]}>
+                    <Text style={[st.gradePillText, { color }]}>{row.grade || '—'}</Text>
+                  </View>
+                </View>
+                <Text style={[st.tableCell, st.right]}>{parseFloat(row.qty).toFixed(2)}</Text>
+                <Text style={[st.tableCell, st.right]}>{fmtRate(row.avg_rate)}</Text>
+                <Text style={[st.tableCell, st.right, { fontWeight: '500' }]}>
+                  {fmt(row.value)}
+                </Text>
+              </View>
+            )
+          })}
+
+          {/* Total row */}
+          {total && (
+            <View style={[st.tableRow, st.tableRowTotal, st.tableRowLast]}>
+              <Text style={[st.tableCell, { fontWeight: '700', color: '#111827' }]}>
+                Total
+              </Text>
+              <Text style={[st.tableCell, st.right, { fontWeight: '700', color: '#111827' }]}>
+                {parseFloat(total.qty).toFixed(2)}
+              </Text>
+              <Text style={[st.tableCell, st.right]}>—</Text>
+              <Text style={[st.tableCell, st.right, { fontWeight: '700', color: '#111827' }]}>
+                {fmt(total.value)}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    )
+  }
+
+  return (
+    <View>
+      <ConvBlock block={data.prod_conv} label="Production Qty Dispatched" />
+      <ConvBlock block={data.jw_conv} label="Job Work Qty Dispatched" />
+
+      {/* Net total footer */}
+      {data.net_total && (
+        <View style={cv.netTotalRow}>
+          <Text style={cv.netTotalLabel}>Net Total</Text>
+          <View style={cv.netTotalRight}>
+            <Text style={cv.netTotalQty}>
+              {parseFloat(data.net_total.qty).toLocaleString('en-IN', { maximumFractionDigits: 2 })} kg
+            </Text>
+            <Text style={cv.netTotalValue}>{fmt(data.net_total.value)}</Text>
+          </View>
+        </View>
+      )}
+    </View>
   )
 }
 
@@ -431,107 +648,6 @@ function StockGradeTable({ grades }: { grades: StockGradeItem[] }) {
 }
 
 
-// ─── Month / Year Picker ──────────────────────────────────────────────────────
-
-function MonthYearPicker({
-  visible,
-  month,
-  year,
-  onApply,
-  onClose,
-}: {
-  visible: boolean
-  month: number
-  year: number
-  onApply: (month: number, year: number) => void
-  onClose: () => void
-}) {
-  const [selYear, setSelYear] = useState(year)
-  const [selMonth, setSelMonth] = useState(month)
-
-  // Reset picker state whenever it opens
-  useEffect(() => {
-    if (visible) { setSelYear(year); setSelMonth(month) }
-  }, [visible])
-
-  const minYear = DEFAULT_YEAR - 3
-  const maxYear = DEFAULT_YEAR
-
-  return (
-    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
-      <Pressable style={pk.overlay} onPress={onClose}>
-        <Pressable style={pk.sheet} onPress={() => { }}>
-          {/* Handle */}
-          <View style={pk.handle} />
-
-          <Text style={pk.sheetTitle}>Select Month & Year</Text>
-
-          {/* Year selector */}
-          <View style={pk.yearRow}>
-            <TouchableOpacity
-              style={[pk.yearArrow, selYear <= minYear && pk.yearArrowDisabled]}
-              onPress={() => selYear > minYear && setSelYear(v => v - 1)}
-              hitSlop={{ top: 10, bottom: 10, left: 14, right: 14 }}
-            >
-              <Text style={[pk.yearArrowText, selYear <= minYear && { color: '#D1D5DB' }]}>‹</Text>
-            </TouchableOpacity>
-            <Text style={pk.yearLabel}>{selYear}</Text>
-            <TouchableOpacity
-              style={[pk.yearArrow, selYear >= maxYear && pk.yearArrowDisabled]}
-              onPress={() => selYear < maxYear && setSelYear(v => v + 1)}
-              hitSlop={{ top: 10, bottom: 10, left: 14, right: 14 }}
-            >
-              <Text style={[pk.yearArrowText, selYear >= maxYear && { color: '#D1D5DB' }]}>›</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Month grid */}
-          <View style={pk.monthGrid}>
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
-              const isActive = m === selMonth && selYear === selYear
-              const isCurrent = m === selMonth
-              const isFuture = selYear === DEFAULT_YEAR && m > DEFAULT_MONTH
-              return (
-                <TouchableOpacity
-                  key={m}
-                  style={[
-                    pk.monthBtn,
-                    isCurrent && pk.monthBtnActive,
-                    isFuture && pk.monthBtnDisabled,
-                  ]}
-                  onPress={() => !isFuture && setSelMonth(m)}
-                  activeOpacity={isFuture ? 1 : 0.7}
-                >
-                  <Text style={[
-                    pk.monthBtnText,
-                    isCurrent && pk.monthBtnTextActive,
-                    isFuture && pk.monthBtnTextDisabled,
-                  ]}>
-                    {MONTH_SHORT[m]}
-                  </Text>
-                </TouchableOpacity>
-              )
-            })}
-          </View>
-
-          {/* Actions */}
-          <View style={pk.actions}>
-            <TouchableOpacity style={pk.cancelBtn} onPress={onClose}>
-              <Text style={pk.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={pk.applyBtn}
-              onPress={() => { onApply(selMonth, selYear); onClose() }}
-            >
-              <Text style={pk.applyBtnText}>Apply</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  )
-}
-
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function DashboardScreen() {
@@ -543,11 +659,13 @@ export default function DashboardScreen() {
   // true only until the very first cache read completes — never set back to true
   const [initialLoading, setInitialLoading] = useState(true)
 
-  // ── Month / Year filter ────────────────────────────────────────────────────
+  // ── Month / Year / FY filter ──────────────────────────────────────────────
   const [selectedMonth, setSelectedMonth] = useState(DEFAULT_MONTH)
   const [selectedYear, setSelectedYear] = useState(DEFAULT_YEAR)
+  const [selectedFY, setSelectedFY] = useState(getCurrentFY())
+  const [fyPickerVisible, setFyPickerVisible] = useState(false)
 
-  const fiscalYear = getFiscalYear(selectedMonth, selectedYear)
+  const fiscalYear = selectedFY
 
   const loadLocal = useCallback(async (month: number, year: number) => {
     const cached = await loadDashboardV2(month, year)
@@ -584,6 +702,27 @@ export default function DashboardScreen() {
     return () => subscription.unsubscribe()
   }, [selectedMonth, selectedYear])
 
+  // Load saved filter on mount + Listen for global changes
+  useEffect(() => {
+    const fetchSavedFilter = async () => {
+      const saved = await SessionManager.getDashFilter();
+      if (saved) {
+        setSelectedMonth(saved.month);
+        setSelectedYear(saved.year);
+        setSelectedFY(saved.fy);
+      }
+    };
+    fetchSavedFilter();
+
+    const sub = DeviceEventEmitter.addListener('SHARED_FILTER_CHANGED', (data) => {
+      setSelectedMonth(data.month);
+      setSelectedYear(data.year);
+      setSelectedFY(data.fy);
+    });
+
+    return () => sub.remove();
+  }, [])
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
     await runSync(selectedMonth, selectedYear)
@@ -593,28 +732,42 @@ export default function DashboardScreen() {
   const handleFilterApply = useCallback((month: number, year: number) => {
     setSelectedMonth(month)
     setSelectedYear(year)
+    SessionManager.setDashFilter(month, year, selectedFY);
+    DeviceEventEmitter.emit('SHARED_FILTER_CHANGED', { month, year, fy: selectedFY });
+  }, [selectedFY])
+
+  const handleFYApply = useCallback((fy: string) => {
+    setSelectedFY(fy)
+    const d = new Date()
+    const curM = d.getMonth() + 1
+    const curY = d.getFullYear()
+    const curFY = getCurrentFY()
+
+    let m = 4, y = parseInt(fy.split('-')[0])
+    if (fy === curFY) {
+      m = curM
+      y = curY
+    }
+
+    setSelectedMonth(m)
+    setSelectedYear(y)
+    SessionManager.setDashFilter(m, y, fy)
+    DeviceEventEmitter.emit('SHARED_FILTER_CHANGED', { month: m, year: y, fy })
   }, [])
 
-  // ── Loading — only block render when there is genuinely nothing to show ─────
-  // initialLoading=true + no data = first ever launch with no cache at all
-  if (initialLoading && !data) {
-    return (
-      <View style={s.center}>
-        <Stack.Screen options={{ title: 'Dashboard', headerBackButtonDisplayMode: 'minimal' }} />
-        <ActivityIndicator size="large" color={Colors.brandColor} />
-        <Text style={s.loadingText}>Loading dashboard…</Text>
-      </View>
-    )
-  }
-
-  // Cache read finished but nothing stored — show empty state instead of hanging
+  // ── Show shimmer until we have any data to render ───────────────────────────
   if (!data) {
     return (
-      <View style={s.center}>
-        <Stack.Screen options={{ title: 'Dashboard', headerBackButtonDisplayMode: 'minimal' }} />
-        <Text style={s.errorText}>No data available</Text>
-        <Text style={s.loadingText}>Pull down to refresh when online</Text>
-      </View>
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: 'Dashboard',
+            headerTintColor: Colors.brandColor,
+          }}
+        />
+        <DashboardShimmer />
+      </>
     )
   }
 
@@ -625,24 +778,11 @@ export default function DashboardScreen() {
     router.replace('/login');
   };
 
-  const kpi = data.kpi
-  const netPos = data.netPosition
-  const recAging = data.receivablesAging
-  const payAging = data.payablesAging
   const overdueList = data.upcomingOverdue.slice(0, 5)
-  const upcomingList = data.upcomingUpcoming.slice(0, 5)
   const recentInvoices = data.recentInvoices.slice(0, 5)
   const pl = data.profitLoss
-  const isLoss = data.profitLoss.is_profit === 'No'
-  const overdueCount = data.totalOverdueCount;
-  const overdueAmount = data.totalOverdueAmount;
-  const upccomingCount = data.totalUpcomingCount;
-  const upccomingAmount = data.totalUpcomingAmount;
   const stockOverview = data.stockOverview
-  const stockGrades = data.stockGradeOverview
-
-  const gstIsRefund = kpi?.gst?.is_refund === '1'
-  const netGst = parseFloat(kpi?.gst?.net_payable || '0')
+  const conversionData = data.conversionGenerate
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -657,16 +797,15 @@ export default function DashboardScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
+          headerBackTitle: '',
+          headerBackVisible: true,
+          headerTintColor: Colors.brandColor,
           title: 'Dashboard',
-          headerBackVisible: false,
           headerRight: () => (
-            <View style={{ marginRight: 12 }}>
-              <TouchableOpacity
-                onPress={() => setLogoutVisible(true)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                style={{ alignItems: 'center', justifyContent: 'center', marginLeft: 8 }}
-              >
-                <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
+            <View style={{ marginRight: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <NotificationBell color={Colors.brandColor} />
+              <TouchableOpacity onPress={() => router.push('/profile/ProfileScreen')}>
+                <Ionicons name="person-circle-outline" size={28} color={Colors.brandColor} />
               </TouchableOpacity>
             </View>
           ),
@@ -685,40 +824,39 @@ export default function DashboardScreen() {
 
             <View style={s.divider} />
 
-            <TouchableOpacity
-              style={s.actionBtn}
-              onPress={handleLogout}
-            >
+            <TouchableOpacity style={s.actionBtn} onPress={handleLogout}>
               <Text style={s.logoutText}>Log out</Text>
             </TouchableOpacity>
 
             <View style={s.divider} />
 
-            <TouchableOpacity
-              style={s.actionBtn}
-              onPress={() => setLogoutVisible(false)}
-            >
+            <TouchableOpacity style={s.actionBtn} onPress={() => setLogoutVisible(false)}>
               <Text style={s.cancelText}>Cancel</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
       </Modal>
 
-      {/* ── Month / Year Picker ───────────────────────────────────────────── */}
+      {/* ── Filters ───────────────────────────────────────────────────────────── */}
+      <FinancialYearPicker
+        visible={fyPickerVisible}
+        selectedFY={selectedFY}
+        onApply={handleFYApply}
+        onClose={() => setFyPickerVisible(false)}
+      />
+
       <MonthYearPicker
         visible={pickerVisible}
         month={selectedMonth}
         year={selectedYear}
+        selectedFY={selectedFY}
         onApply={handleFilterApply}
         onClose={() => setPickerVisible(false)}
       />
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <View style={s.header}>
-        <View>
-          <Text style={s.headerTitle}>Dashboard</Text>
-          <Text style={s.headerSub}>{MONTH_NAMES[selectedMonth]} {selectedYear}</Text>
-        </View>
+        <View />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {syncing && !refreshing && (
             <View style={s.syncBadge}>
@@ -728,71 +866,22 @@ export default function DashboardScreen() {
           )}
           <TouchableOpacity
             style={s.filterBtn}
-            onPress={() => setPickerVisible(true)}
+            onPress={() => setFyPickerVisible(true)}
             activeOpacity={0.7}
           >
             <Text style={s.filterBtnIcon}>📅</Text>
+            <Text style={s.filterBtnText}>{selectedFY}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={s.filterBtn}
+            onPress={() => setPickerVisible(true)}
+            activeOpacity={0.7}
+          >
             <Text style={s.filterBtnText}>
               {MONTH_SHORT[selectedMonth]} {selectedYear}
             </Text>
           </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* ── KPI Row ──────────────────────────────────────────────────────── */}
-      <View style={s.kpiRow}>
-        <KpiCard
-          label="Total Sales"
-          value={fmt(kpi?.sales?.total_sales)}
-          sub={`${kpi?.sales?.total_invoices ?? 0} invoices`}
-          accent="green"
-          onAction={() => router.push('../../sales/SalesListScreen')}
-        />
-        <KpiCard
-          label="Total Purchases"
-          value={fmt(kpi?.purchases?.total_purchase)}
-          sub={`${kpi?.purchases?.total_bills ?? 0} bills`}
-          accent="red"
-          onAction={() => router.push('../../purchases/PurchaseListScreen')}
-        />
-      </View>
-      <View style={s.kpiRow}>
-        <KpiCard
-          label={gstIsRefund ? 'GST Refund' : 'GST Payable'}
-          value={fmt(Math.abs(netGst))}
-          sub={`Output: ${fmt(kpi?.gst?.output_tax)} · ITC: ${fmt(kpi?.gst?.input_tax_credit)}`}
-          accent={gstIsRefund ? 'green' : 'amber'}
-        />
-        <KpiCard
-          label="TDS"
-          value={fmt(kpi?.tds?.total_tds)}
-          sub={`${kpi?.tds?.total_entries ?? 0} entries`}
-          accent="blue"
-        />
-      </View>
-
-      {/* ── Net Position ─────────────────────────────────────────────────── */}
-      <View style={s.card}>
-        <SectionHeader title="Net position" />
-        <View style={s.netRow}>
-          <View style={s.netBlock}>
-            <Text style={s.netLabel}>Receivable</Text>
-            <Text style={[s.netValue, s.green]}>{fmt(netPos?.total_receivable)}</Text>
-            <Text style={s.netSub}>Overdue: {fmt(netPos?.overdue_receivable)}</Text>
-          </View>
-          <View style={s.netDivider} />
-          <View style={s.netBlock}>
-            <Text style={s.netLabel}>Payable</Text>
-            <Text style={[s.netValue, s.red]}>{fmt(netPos?.total_payable)}</Text>
-            <Text style={s.netSub}>Overdue: {fmt(netPos?.overdue_payable)}</Text>
-          </View>
-          <View style={s.netDivider} />
-          <View style={s.netBlock}>
-            <Text style={s.netLabel}>Net</Text>
-            <Text style={[s.netValue, parseFloat(netPos?.net || '0') >= 0 ? s.green : s.red]}>
-              {fmt(netPos?.net)}
-            </Text>
-          </View>
         </View>
       </View>
 
@@ -820,64 +909,11 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {/* ── Receivables Aging ────────────────────────────────────────────── */}
-      <View style={s.card}>
-        <SectionHeader
-          title="Receivables"
-        />
-        <View style={s.agingMeta}>
-          <Text style={s.agingTotal}>{fmt(recAging?.total_outstanding)}</Text>
-          <Text style={s.agingCount}>{recAging?.total_count} invoices</Text>
-        </View>
-        {recAging?.buckets && <AgingBar
-          buckets={recAging.buckets}
-          title="Receivables"
-          onBucketPress={(bucketKey) =>
-            router.push({
-              pathname: '../../others/SalesRegisterScreen',
-              params: { btwnDays: bucketKey, fiscalYear: fiscalYear },
-            })
-          }
-        />}
-      </View>
-
-      {/* ── Payables Aging ───────────────────────────────────────────────── */}
-      <View style={s.card}>
-        <SectionHeader
-          title="Payables"
-
-        />
-        <View style={s.agingMeta}>
-          <Text style={[s.agingTotal, s.red]}>{fmt(payAging?.total_outstanding)}</Text>
-          <Text style={s.agingCount}>{payAging?.total_count} bills</Text>
-        </View>
-        {payAging?.buckets && (
-          <AgingBar
-            buckets={payAging.buckets}
-            title="Payables"
-            onBucketPress={(bucketKey) =>
-              router.push({
-                pathname: '../../others/PurchaseRegisterScreen',
-                params: { btwnDays: bucketKey, fiscalYear: fiscalYear },
-              })
-            }
-          />
-        )}
-      </View>
-
-      {/* ── Stock Overview ───────────────────────────────────────────────── */}
-      {stockOverview?.inwards && (
+      {/* ── Conversion & Generate ────────────────────────────────────── */}
+      {conversionData && (
         <View style={s.card}>
-          <SectionHeader title="Stock Overview" />
-          <StockOverviewCard stock={stockOverview} />
-        </View>
-      )}
-
-      {/* ── Sales by Grade ───────────────────────────────────────────────── */}
-      {stockGrades?.length > 0 && (
-        <View style={s.card}>
-          <SectionHeader title="Sales by Grade" />
-          <StockGradeTable grades={stockGrades} />
+          <SectionHeader title="Conversion Generated" />
+          <ConversionCard data={conversionData} />
           <TouchableOpacity
             style={s.breakdownBtn}
             activeOpacity={0.7}
@@ -893,58 +929,21 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      <View style={s.kpiRow}>
-        <KpiCard
-          label="Overdue Payments"
-          value={fmt(overdueAmount)}
-          sub={`${overdueCount} invoices`}
-          accent="red"
-          onAction={() => router.push({ pathname: '../../others/UpcomingPaymentsScreen', params: { tab: 'overdue' } })}
-        />
-        <KpiCard
-          label="Upcoming Payments"
-          value={fmt(upccomingAmount)}
-          sub={`${upccomingCount} invoices`}
-          accent="red"
-          onAction={() => router.push({ pathname: '../../others/UpcomingPaymentsScreen', params: { tab: 'upcoming' } })}
-        />
-      </View>
-
-      {/* ── Overdue Payments ─────────────────────────────────────────────── */}
-      {/* {overdueList.length > 0 && (
+      {/* ── Stock Overview ───────────────────────────────────────────────── */}
+      {stockOverview?.inwards && (
         <View style={s.card}>
-          <SectionHeader
-            title={`Overdue payments (${data.upcomingOverdue.length})`}
-            actionLabel="View All"
-            onAction={() => router.push('/UpcomingPaymentsScreen')}
-          />
-          {overdueList.map((item) => (
-            <UpcomingRow key={item.purchase_id} item={item} />
-          ))}
+          <SectionHeader title="Stock Summary" />
+          <StockOverviewCard stock={stockOverview} />
         </View>
-      )} */}
-
-      {/* ── Upcoming Payments ────────────────────────────────────────────── */}
-      {/* {upcomingList.length > 0 && (
-        <View style={s.card}>
-          <SectionHeader
-            title={`Upcoming payments (${data.upcomingUpcoming.length})`}
-            actionLabel="View All"
-            onAction={() => router.push('/UpcomingPaymentsScreen')}
-          />
-          {upcomingList.map((item) => (
-            <UpcomingRow key={item.purchase_id} item={item} />
-          ))}
-        </View>
-      )} */}
+      )}
 
       {/* ── Recent Invoices ──────────────────────────────────────────────── */}
       {recentInvoices.length > 0 && (
         <View style={s.card}>
           <SectionHeader
-            title="Recent invoices"
+            title="Recent Sales Invoices"
             actionLabel="See All"
-            onAction={() => router.push({ pathname: '../../others/RecentInvoicesScreen', params: { month: selectedMonth, year: selectedYear } })}
+            onAction={() => router.push({ pathname: '/others/RecentInvoicesScreen', params: { month: selectedMonth, year: selectedYear } })}
           />
           {recentInvoices.map((item, i) => (
             <View key={item.sale_id}>
@@ -954,22 +953,6 @@ export default function DashboardScreen() {
           ))}
         </View>
       )}
-
-      {/* ── Quick links ──────────────────────────────────────────────────── */}
-      {/* <View style={s.quickRow}>
-        {([
-          { label: 'Parties', route: '/PartyListScreen' },
-          { label: 'Payments', route: '/PaymentListScreen' },
-        ] as const).map((q) => (
-          <TouchableOpacity
-            key={q.label}
-            style={s.quickBtn}
-            onPress={() => router.push(q.route as any)}
-          >
-            <Text style={s.quickBtnText}>{q.label} →</Text>
-          </TouchableOpacity>
-        ))}
-      </View> */}
 
       <View style={s.footer} />
     </ScrollView>
@@ -982,25 +965,16 @@ const s = StyleSheet.create({
   content: { padding: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, backgroundColor: '#F3F4F6' },
   loadingText: { fontSize: 14, color: '#6B7280', textAlign: 'center' },
-  errorText: { fontSize: 16, fontWeight: '600', color: '#374151', marginBottom: 4 },
   footer: { height: 82 },
 
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#111827', letterSpacing: -0.3 },
-  headerSub: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: '#111827' },
   syncBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.brandColorLight, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 0.5, borderColor: Colors.brandColor },
   syncText: { fontSize: 12, color: Colors.brandColor, fontWeight: '500' },
   filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#FFFFFF', paddingHorizontal: 11, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB' },
   filterBtnIcon: { fontSize: 13 },
   filterBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
-
-  // KPI
-  kpiRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  kpiCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, borderWidth: 0.5, borderColor: '#E5E7EB' },
-  kpiLabel: { fontSize: 11, color: '#9CA3AF', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 },
-  kpiValue: { fontSize: 18, fontWeight: '700', color: '#111827', letterSpacing: -0.3, marginBottom: 2 },
-  kpiSub: { fontSize: 11, color: '#6B7280' },
 
   // Card
   card: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginBottom: 14, borderWidth: 0.5, borderColor: '#E5E7EB' },
@@ -1008,8 +982,22 @@ const s = StyleSheet.create({
   // Section header
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   sectionTitle: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  sectionAction: { backgroundColor: Colors.brandColorLight, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 0.5, borderColor: Colors.brandColorLight },
+  sectionAction: { backgroundColor: Colors.brandColorLight, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   sectionActionText: { fontSize: 12, fontWeight: '500', color: Colors.brandColor },
+
+  // Badge
+  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, backgroundColor: '#F3F4F6', borderWidth: 0.5, borderColor: '#E5E7EB' },
+  badgeProfit: { backgroundColor: '#D1FAE5', borderColor: '#6EE7B7' },
+  badgeLoss: { backgroundColor: '#FEE2E2', borderColor: '#FECACA' },
+  badgeText: { fontSize: 11, fontWeight: '600', color: '#6B7280' },
+  badgeTextProfit: { color: '#065F46' },
+  badgeTextLoss: { color: '#991B1B' },
+
+  // KPI
+  kpiCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, borderWidth: 0.5, borderColor: '#E5E7EB' },
+  kpiLabel: { fontSize: 11, color: '#9CA3AF', marginBottom: 4, textTransform: 'uppercase' },
+  kpiValue: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  kpiSub: { fontSize: 11, color: '#6B7280' },
 
   // Net position
   netRow: { flexDirection: 'row', alignItems: 'flex-start' },
@@ -1017,14 +1005,10 @@ const s = StyleSheet.create({
   netDivider: { width: 0.5, backgroundColor: '#E5E7EB', alignSelf: 'stretch', marginHorizontal: 12 },
   netLabel: { fontSize: 11, color: '#9CA3AF', marginBottom: 4 },
   netValue: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  netSub: { fontSize: 10, color: '#9CA3AF' },
   green: { color: '#059669' },
   red: { color: '#DC2626' },
 
   // Aging bar
-  agingMeta: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 10 },
-  agingTotal: { fontSize: 18, fontWeight: '700', color: '#111827' },
-  agingCount: { fontSize: 12, color: '#9CA3AF' },
   agingBarWrap: { gap: 10 },
   agingBar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#F3F4F6' },
   agingSegment: { height: 8 },
@@ -1056,7 +1040,6 @@ const s = StyleSheet.create({
   invoiceBadgeText: { fontSize: 10, fontWeight: '600' },
   divider: { height: 0.5, backgroundColor: '#F3F4F6' },
 
-  // Quick links
   breakdownBtn: {
     marginTop: 10,
     borderTopWidth: 0.5,
@@ -1068,9 +1051,6 @@ const s = StyleSheet.create({
     borderBottomRightRadius: 12,
   },
   breakdownBtnText: { fontSize: 13, fontWeight: '600', color: Colors.brandColor },
-  quickRow: { flexDirection: 'row', gap: 10 },
-  quickBtn: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 10, padding: 14, alignItems: 'center', borderWidth: 0.5, borderColor: '#E5E7EB' },
-  quickBtnText: { fontSize: 14, fontWeight: '500', color: Colors.brandColor },
 
   overlay: {
     flex: 1,
@@ -1092,53 +1072,14 @@ const s = StyleSheet.create({
     paddingVertical: 24,
     color: '#000',
   },
-
   actionBtn: {
     paddingVertical: 18,
     alignItems: 'center',
   },
-  logoutText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FF3B30',
-  },
-  cancelText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: '#000',
-  },
-
-  // Badge
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    borderWidth: 0.5,
-    borderColor: '#E5E7EB',
-  },
-  badgeProfit: {
-    backgroundColor: '#D1FAE5',
-    borderColor: '#6EE7B7',
-  },
-  badgeLoss: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#FECACA',
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  badgeTextProfit: {
-    color: '#065F46',
-  },
-  badgeTextLoss: {
-    color: '#991B1B',
-  },
+  logoutText: { fontSize: 16, fontWeight: '600', color: '#FF3B30' },
+  cancelText: { fontSize: 16, fontWeight: '400', color: '#000' },
 })
 
-// ─── Table styles (stock overview + grade) ────────────────────────────────────
 const st = StyleSheet.create({
   tableCard: {
     borderRadius: 8,
@@ -1155,89 +1096,22 @@ const st = StyleSheet.create({
     borderBottomColor: '#F3F4F6',
     gap: 4,
   },
-  tableRowLast: {
-    borderBottomWidth: 0,
-  },
-  tableRowTotal: {
-    backgroundColor: '#F9FAFB',
-  },
-  tableHead: {
-    backgroundColor: '#F3F4F6',
-    paddingVertical: 7,
-  },
-  tableHeadText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  tableCell: {
-    flex: 1,
-    fontSize: 12,
-    color: '#374151',
-  },
-  labelCell: {
-    fontWeight: '500',
-    color: '#111827',
-  },
-  right: {
-    textAlign: 'right',
-  },
-  gradePill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  gradePillText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
+  tableRowLast: { borderBottomWidth: 0 },
+  tableRowTotal: { backgroundColor: '#F9FAFB' },
+  tableHead: { backgroundColor: '#F3F4F6', paddingVertical: 7 },
+  tableHeadText: { fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' },
+  tableCell: { flex: 1.2, fontSize: 12, color: '#374151' },
+  labelCell: { fontWeight: '500', color: '#111827' },
+  right: { textAlign: 'right' },
+  gradePill: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  gradePillText: { fontSize: 11, fontWeight: '700' },
 })
 
-// ─── Picker styles ─────────────────────────────────────────────────────────────
-const pk = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingBottom: 36,
-    paddingTop: 12,
-  },
-  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB', alignSelf: 'center', marginBottom: 16 },
-  sheetTitle: { fontSize: 16, fontWeight: '700', color: '#111827', textAlign: 'center', marginBottom: 20 },
-
-  // Year navigation
-  yearRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 28, marginBottom: 20 },
-  yearArrow: { padding: 4 },
-  yearArrowDisabled: {},
-  yearArrowText: { fontSize: 28, color: '#374151', fontWeight: '300', lineHeight: 32 },
-  yearLabel: { fontSize: 22, fontWeight: '700', color: '#111827', minWidth: 70, textAlign: 'center' },
-
-  // Month grid (4 columns)
-  monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
-  monthBtn: {
-    width: '22%',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  monthBtnActive: { backgroundColor: Colors.brandColor, borderColor: Colors.brandColor },
-  monthBtnDisabled: { backgroundColor: '#F3F4F6', borderColor: '#F3F4F6' },
-  monthBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  monthBtnTextActive: { color: '#FFFFFF' },
-  monthBtnTextDisabled: { color: '#D1D5DB' },
-
-  // Actions
-  actions: { flexDirection: 'row', gap: 12 },
-  cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#F9FAFB' },
-  cancelBtnText: { fontSize: 15, fontWeight: '600', color: '#6B7280' },
-  applyBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: Colors.brandColor },
-  applyBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+const cv = StyleSheet.create({
+  blockLabel: { fontSize: 12, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', marginBottom: 6 },
+  netTotalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: '#E5E7EB' },
+  netTotalLabel: { fontSize: 13, fontWeight: '700', color: '#111827' },
+  netTotalRight: { alignItems: 'flex-end', gap: 2 },
+  netTotalQty: { fontSize: 12, color: '#6B7280' },
+  netTotalValue: { fontSize: 15, fontWeight: '700', color: '#111827' },
 })

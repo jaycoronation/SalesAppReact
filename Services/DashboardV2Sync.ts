@@ -1,11 +1,10 @@
 import { database } from '@/Database'
-import DashboardOverviewV2 from '@/Database/models/dashboardoverview'
+import DashboardOverviewV2, { AgingData } from '@/Database/models/dashboardoverview'
 import UpcomingPayment from '@/Database/models/Upcomingpayment'
-import { ApiEndPoints } from "@/network/ApiEndPoint"
+import { ApiEndPoints } from '@/network/ApiEndPoint'
 import { SessionManager } from '@/utils/sessionManager'
 import { Q } from '@nozbe/watermelondb'
 import NetInfo from '@react-native-community/netinfo'
-
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -13,6 +12,7 @@ async function authHeaders(): Promise<Record<string, string>> {
     const token = await SessionManager.getToken()
     return {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
         Authorization: `Bearer ${token ?? ''}`,
     }
 }
@@ -52,15 +52,26 @@ export async function syncDashboardV2(month: number, year: number): Promise<void
             const apply = (record: DashboardOverviewV2) => {
                 record.month = month
                 record.year = year
+
+                // KPI & summary
                 record.kpiJson = JSON.stringify(d.kpi ?? {})
                 record.netPositionJson = JSON.stringify(d.net_position ?? {})
+
+                // Aging — { due: {...}, upcoming: {...} }
                 record.receivablesAgingJson = JSON.stringify(d.receivables_aging ?? {})
                 record.payablesAgingJson = JSON.stringify(d.payables_aging ?? {})
+
+                // Payments & invoices
                 record.upcomingPaymentsJson = JSON.stringify(d.upcoming_payments ?? {})
                 record.recentInvoicesJson = JSON.stringify(d.recent_invoices ?? [])
+
+                // P&L and stock
+                record.profitLossJson = JSON.stringify(d.profit_loss ?? {})
                 record.stockOverviewJson = JSON.stringify(d.stock_overview ?? {})
                 record.stockGradeOverviewJson = JSON.stringify(d.stock_grade_overview ?? [])
-                record.profitLossJson = JSON.stringify(d.profit_loss ?? {})  // ← add this
+
+                // Conversion / generate (NEW)
+                record.conversionGenerateJson = JSON.stringify(d.conversion_generate ?? null)
             }
 
             if (existing.length > 0) {
@@ -100,7 +111,6 @@ export async function syncUpcomingPayments(
         const collection = database.get<UpcomingPayment>('upcoming_payments')
 
         await database.write(async () => {
-            // Delete existing for this fiscal year + type
             const existing = await collection
                 .query(
                     Q.where('fiscal_year', fiscalYear),
@@ -142,10 +152,7 @@ export async function syncUpcomingPayments(
 export function observeDashboardV2(month: number, year: number) {
     return database
         .get<DashboardOverviewV2>('dashboard_overview_v2')
-        .query(
-            Q.where('month', month),
-            Q.where('year', year)
-        )
+        .query(Q.where('month', month), Q.where('year', year))
 }
 
 export async function loadDashboardV2(
@@ -157,6 +164,26 @@ export async function loadDashboardV2(
         .query(Q.where('month', month), Q.where('year', year))
         .fetch()
     return records.length > 0 ? records[0] : null
+}
+
+export async function loadPayablesAging(
+    month: number,
+    year: number,
+): Promise<AgingData | null> {
+    const dash = await loadDashboardV2(month, year)
+    if (!dash) return null
+    const aging = dash.payablesAging
+    return (aging && aging.due && aging.upcoming) ? aging : null
+}
+
+export async function loadReceivablesAging(
+    month: number,
+    year: number,
+): Promise<AgingData | null> {
+    const dash = await loadDashboardV2(month, year)
+    if (!dash) return null
+    const aging = dash.receivablesAging
+    return (aging && aging.due && aging.upcoming) ? aging : null
 }
 
 export async function loadUpcomingPayments(
@@ -171,6 +198,4 @@ export async function loadUpcomingPayments(
             Q.sortBy('due_date', Q.asc),
         )
         .fetch()
-
-
 }

@@ -3,10 +3,12 @@ import {
   syncStockGradeDetail,
 } from '@/Services/StockGradeDetailSync'
 import { Colors } from '@/utils/colors'
-import { Stack, useLocalSearchParams } from 'expo-router'
-import React, { useCallback, useEffect, useState } from 'react'
+import { router, Stack, useLocalSearchParams } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  Animated,
   ScrollView,
   StyleSheet,
   Text,
@@ -65,6 +67,141 @@ const GRADE_COLORS: Record<string, { bg: string; text: string }> = {
   '202': { bg: '#DBEAFE', text: '#1D4ED8' },
   '304': { bg: '#D1FAE5', text: '#065F46' },
   '316': { bg: '#EDE9FE', text: '#5B21B6' },
+}
+
+// ─── Shimmer ──────────────────────────────────────────────────────────────────
+
+function useShimmerAnim() {
+  const anim = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ])
+    ).start()
+  }, [anim])
+  return anim
+}
+
+function ShimmerBox({
+  width,
+  height,
+  style,
+}: {
+  width?: number | string
+  height: number
+  style?: object
+}) {
+  const anim = useShimmerAnim()
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.9] })
+  return (
+    <Animated.View
+      style={[
+        { width: width ?? '100%', height, borderRadius: 6, backgroundColor: '#E5E7EB', opacity },
+        style,
+      ]}
+    />
+  )
+}
+
+function ShimmerTableRows({ rows = 3 }: { rows?: number }) {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, i) => (
+        <View key={i} style={sh.shimmerRow}>
+          <ShimmerBox width={48} height={22} style={{ borderRadius: 5 }} />
+          <ShimmerBox width={64} height={14} style={{ alignSelf: 'center' }} />
+          <ShimmerBox width={64} height={14} style={{ alignSelf: 'center' }} />
+          <ShimmerBox width={72} height={14} style={{ alignSelf: 'center' }} />
+        </View>
+      ))}
+      <View style={[sh.shimmerRow, { backgroundColor: '#F3F4F6' }]}>
+        <ShimmerBox width={40} height={14} />
+        <ShimmerBox width={64} height={14} />
+        <ShimmerBox width={32} height={14} />
+        <ShimmerBox width={72} height={14} />
+      </View>
+    </>
+  )
+}
+
+function ShimmerCard() {
+  return (
+    <View style={[s.card, { marginBottom: 12 }]}>
+      <View style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 }}>
+        <ShimmerBox width={60} height={11} />
+      </View>
+      <View
+        style={[
+          sh.shimmerRow,
+          { backgroundColor: '#F9FAFB', borderTopWidth: 0.5, borderTopColor: '#E5E7EB' },
+        ]}
+      >
+        <ShimmerBox width={40} height={10} />
+        <ShimmerBox width={56} height={10} />
+        <ShimmerBox width={56} height={10} />
+        <ShimmerBox width={56} height={10} />
+      </View>
+      <ShimmerTableRows rows={3} />
+    </View>
+  )
+}
+
+function ShimmerScreen() {
+  return (
+    <View style={s.container}>
+      {/* Tab bar */}
+      <View style={[s.tabBar, { paddingHorizontal: 16, gap: 12 }]}>
+        <ShimmerBox width={80} height={14} style={{ marginVertical: 14 }} />
+        <ShimmerBox width={80} height={14} style={{ marginVertical: 14 }} />
+      </View>
+
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Summary strip */}
+        <View style={[s.summaryStrip, { marginBottom: 14 }]}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={[s.summaryItem, { gap: 6 }]}>
+              <ShimmerBox width={36} height={10} />
+              <ShimmerBox width={56} height={16} />
+              <ShimmerBox width={48} height={10} />
+            </View>
+          ))}
+        </View>
+
+        {/* Coil card */}
+        <ShimmerCard />
+
+        {/* Pipe card */}
+        <ShimmerCard />
+
+        {/* Total card (branded border) */}
+        <View style={[s.card, s.totalCard, { marginBottom: 12 }]}>
+          <View style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 }}>
+            <ShimmerBox width={110} height={11} />
+          </View>
+          <View
+            style={[
+              sh.shimmerRow,
+              { backgroundColor: '#F9FAFB', borderTopWidth: 0.5, borderTopColor: '#E5E7EB' },
+            ]}
+          >
+            <ShimmerBox width={40} height={10} />
+            <ShimmerBox width={56} height={10} />
+            <ShimmerBox width={56} height={10} />
+            <ShimmerBox width={56} height={10} />
+          </View>
+          <ShimmerTableRows rows={4} />
+        </View>
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
+    </View>
+  )
 }
 
 // ─── Grade Table ──────────────────────────────────────────────────────────────
@@ -173,27 +310,28 @@ export default function StockGradeDetailScreen() {
   }, [monthNum, yearNum])
 
   // ── Loading — only block when there is genuinely nothing to show ──────────
-  if (initialLoading && !gradeData) {
+  if (!gradeData) {
     return (
-      <View style={s.center}>
-        <Stack.Screen options={{ title: 'Grade Breakdown', headerShown: true, headerBackButtonDisplayMode: 'minimal' }} />
-        <ActivityIndicator size="large" color={Colors.brandColor} />
-        <Text style={s.loadingText}>Loading grade data…</Text>
-      </View>
+      <>
+        <Stack.Screen
+          options={{
+            title: 'Grade Breakdown',
+            headerShown: true,
+            headerBackTitle: '',
+            headerTintColor: Colors.brandColor,
+            headerLeft: () => (
+              <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+                <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+              </TouchableOpacity>
+            ),
+          }}
+        />
+        <ShimmerScreen />
+      </>
     )
   }
 
-  if (!gradeData) {
-    return (
-      <View style={s.center}>
-        <Stack.Screen options={{ title: 'Grade Breakdown', headerShown: true, headerBackButtonDisplayMode: 'minimal' }} />
-        <Text style={s.errorText}>{error ?? 'No data available'}</Text>
-        <TouchableOpacity style={s.retryBtn} onPress={runSync}>
-          <Text style={s.retryText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
+
 
   const activeData = gradeData[activeTab]
 
@@ -204,7 +342,13 @@ export default function StockGradeDetailScreen() {
         options={{
           title: 'Grade Breakdown',
           headerShown: true,
-          headerBackButtonDisplayMode: 'minimal',
+          headerBackTitle: '',
+          headerTintColor: Colors.brandColor,
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+              <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+            </TouchableOpacity>
+          ),
         }}
       />
 
@@ -387,4 +531,18 @@ const t = StyleSheet.create({
   },
   gradePillDefault: { backgroundColor: '#F3F4F6' },
   gradePillText: { fontSize: 11, fontWeight: '700' },
+})
+
+// ─── Shimmer styles ───────────────────────────────────────────────────────────
+
+const sh = StyleSheet.create({
+  shimmerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F3F4F6',
+    gap: 8,
+  },
 })

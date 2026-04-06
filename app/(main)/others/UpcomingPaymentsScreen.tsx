@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { ShimmerBox } from '@/components/Shimmer'
 
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -97,6 +98,43 @@ function PaymentRow({ item, last }: { item: UpcomingPayment; last: boolean }) {
   )
 }
 
+// ─── Shimmer Loading Layout ──────────────────────────────────────────────────
+
+function ShimmerUpcomingPayments() {
+  return (
+    <View style={s.container}>
+      <View style={s.header}>
+        <View style={s.titleRow}>
+          <View>
+            <ShimmerBox width={150} height={18} style={{ marginBottom: 4 }} />
+          </View>
+        </View>
+        <View style={s.tabsRow}>
+           <View style={{ flex: 1 }}><ShimmerBox height={35} borderRadius={10} /></View>
+           <View style={{ flex: 1 }}><ShimmerBox height={35} borderRadius={10} /></View>
+        </View>
+      </View>
+
+      <View style={{ paddingHorizontal: 16, gap: 10 }}>
+        {[1, 2, 3, 4, 5].map(i => (
+          <View key={i} style={[s.row, { backgroundColor: '#FFFFFF', borderColor: '#E5E7EB' }]}>
+            <View style={[s.dot, { backgroundColor: '#E5E7EB' }]} />
+            <View style={s.rowLeft}>
+              <ShimmerBox width="60%" height={14} style={{ marginBottom: 6 }} />
+              <ShimmerBox width="40%" height={12} style={{ marginBottom: 6 }} />
+              <ShimmerBox width="50%" height={10} />
+            </View>
+            <View style={s.rowRight}>
+              <ShimmerBox width={60} height={16} style={{ marginBottom: 6 }} />
+              <ShimmerBox width={40} height={12} />
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function UpcomingPaymentsScreen() {
@@ -147,24 +185,35 @@ export default function UpcomingPaymentsScreen() {
   // ── Loading ────────────────────────────────────────────────────────────────
   if (overdueList.length === 0 && upcomingList.length === 0 && syncing) {
     return (
-      <View style={s.center}>
-        <Stack.Screen options={{ title: 'Upcoming Payments', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
-        <ActivityIndicator size="large" color={Colors.brandColor} />
-        <Text style={s.loadingText}>Loading…</Text>
-      </View>
+      <>
+        <Stack.Screen
+          options={{
+            title: 'Upcoming Payments',
+            headerShown: true,
+            headerBackButtonDisplayMode: "minimal",
+          }}
+        />
+        <ShimmerUpcomingPayments />
+      </>
     )
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={s.container}>
-      <Stack.Screen options={{ title: 'Upcoming Payments', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
+      <Stack.Screen
+        options={{
+          title: 'Upcoming Payments',
+          headerShown: true,
+          headerBackButtonDisplayMode: "minimal",
+        }}
+      />
 
       {/* ── Sticky header ─────────────────────────────────────────────────── */}
       <View style={s.header}>
         <View style={s.titleRow}>
           <View>
-            <Text style={s.title}>Payments</Text>
+            {/* <Text style={s.title}>Payments</Text> */}
             <Text style={s.subtitle}>
               {activeList.length} records · {fmt(totalAmt)}
             </Text>

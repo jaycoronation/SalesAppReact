@@ -1,7 +1,9 @@
+import { ShimmerBox } from '@/components/Shimmer'
 import SaleDetail, { LineItem } from '@/Database/models/SalesDetail'
 import { loadSaleDetail, syncSaleDetail } from '@/Services/Saledetailsync'
 import { Colors } from '@/utils/colors'
-import { Stack, useLocalSearchParams } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
+import { router, Stack, useLocalSearchParams } from 'expo-router'
 import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
@@ -97,6 +99,58 @@ function LineItemRow({ item, last }: { item: LineItem; last: boolean }) {
   )
 }
 
+// ─── Shimmer Loading Layout ──────────────────────────────────────────────────
+
+function ShimmerSaleDetail() {
+  return (
+    <View style={s.container}>
+      <View style={s.content}>
+        {/* Hero Card Shimmer */}
+        <View style={s.heroCard}>
+          <View style={[s.heroTop, { marginBottom: 20 }]}>
+            <View style={s.heroLeft}>
+              <ShimmerBox width="60%" height={24} style={{ marginBottom: 8 }} />
+              <ShimmerBox width="40%" height={14} />
+            </View>
+          </View>
+          <View style={{ marginBottom: 20 }}>
+            <ShimmerBox width="30%" height={16} />
+          </View>
+          <View style={[s.datesRow, { backgroundColor: '#F9FAFB' }]}>
+            <View style={{ flex: 1 }}><ShimmerBox height={30} /></View>
+            <View style={s.dateDivider} />
+            <View style={{ flex: 1 }}><ShimmerBox height={30} /></View>
+          </View>
+          <ShimmerBox height={60} style={{ marginTop: 10 }} />
+        </View>
+
+        {/* Section Cards Shimmer */}
+        <View style={s.sectionCard}>
+          <View style={[s.sectionTitle, { backgroundColor: '#FAFAFA' }]}>
+            <ShimmerBox width={80} height={14} />
+          </View>
+          <View style={{ padding: 14, gap: 12 }}>
+            <ShimmerBox height={40} />
+            <ShimmerBox height={40} />
+            <ShimmerBox height={40} />
+          </View>
+        </View>
+
+        <View style={s.sectionCard}>
+          <View style={[s.sectionTitle, { backgroundColor: '#FAFAFA' }]}>
+            <ShimmerBox width={100} height={14} />
+          </View>
+          <View style={{ padding: 14, gap: 12 }}>
+            <ShimmerBox height={20} />
+            <ShimmerBox height={20} />
+            <ShimmerBox height={20} />
+          </View>
+        </View>
+      </View>
+    </View>
+  )
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SaleDetailScreen() {
@@ -106,13 +160,17 @@ export default function SaleDetailScreen() {
   const [detail, setDetail] = useState<SaleDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const doSync = async (id: string) => {
     setSyncing(true)
+    setError(null)
     try {
       await syncSaleDetail(id)
       const fresh = await loadSaleDetail(id)
       if (fresh) setDetail(fresh)
+    } catch (e: any) {
+      setError(e.message || 'Sync failed')
     } finally {
       setSyncing(false)
     }
@@ -122,6 +180,7 @@ export default function SaleDetailScreen() {
     let cancelled = false
 
     const init = async () => {
+      console.log("saleId ====", saleId);
       const cached = await loadSaleDetail(saleId)
 
       if (cancelled) return
@@ -154,11 +213,22 @@ export default function SaleDetailScreen() {
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <View style={s.center}>
-        <Stack.Screen options={{ title: 'Sale Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
-        <ActivityIndicator size="large" color={Colors.brandColor} />
-        <Text style={s.loadingText}>Loading…</Text>
-      </View>
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            headerBackTitle: '',
+            headerTintColor: Colors.brandColor,
+            title: 'Loading Sale...',
+            headerLeft: () => (
+              <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+                <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+              </TouchableOpacity>
+            ),
+          }}
+        />
+        <ShimmerSaleDetail />
+      </>
     )
   }
 
@@ -166,7 +236,7 @@ export default function SaleDetailScreen() {
     return (
       <View style={s.center}>
         <Stack.Screen options={{ title: 'Sale Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
-        <Text style={s.errorText}>Record not found</Text>
+        <Text style={s.errorText}>{error ?? 'Sale not found'}</Text>
         <TouchableOpacity style={s.retryBtn} onPress={() => doSync(saleId)}>
           <Text style={s.retryText}>Retry</Text>
         </TouchableOpacity>
@@ -188,7 +258,19 @@ export default function SaleDetailScreen() {
       contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
     >
-      <Stack.Screen options={{ title: detail.voucherNo || 'Sale Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          headerBackTitle: '',
+          headerTintColor: Colors.brandColor,
+          title: detail?.voucherNo ?? 'Sale Detail',
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+              <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+            </TouchableOpacity>
+          ),
+        }}
+      />
 
       {/* ── Hero card ──────────────────────────────────────────────────────── */}
       <View style={s.heroCard}>
@@ -282,6 +364,7 @@ export default function SaleDetailScreen() {
         {detail.localSalesGst && <InfoRow label="Local sales" value={formatAmount(detail.localSalesGst)} />}
         {detail.ogsJwSales18 && <InfoRow label="OGS job work" value={formatAmount(detail.ogsJwSales18)} />}
         {detail.roundingOff && <InfoRow label="Rounding off" value={`₹ ${detail.roundingOff}`} />}
+        {detail.tds && <InfoRow label="TDS" value={formatAmount(detail.tds)} />}
         <InfoRow label="Gross total" value={formatAmount(detail.grossTotal)} accent="green" last />
       </SectionCard>
 

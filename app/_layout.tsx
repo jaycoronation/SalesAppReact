@@ -7,9 +7,35 @@ import { Redirect, Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MD3LightTheme, PaperProvider } from "react-native-paper";
 
+import { initFirebase } from '@/firebaseConfig';
+import {
+  handleQuitStateNotification,
+  listenBackgroundNotificationTap,
+  listenForegroundNotifications,
+  listenNotificationTap,
+  listenTokenRefresh,
+  registerBackgroundHandler,
+  registerForPushNotifications,
+  setNotificationHandler,
+} from '@/push_notification/notificationService';
+import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
+import { NotificationProvider } from '@/utils/NotificationContext';
 
+// 🔥 Initialize Firebase BEFORE anything else
+initFirebase();
+
+setNotificationHandler();
+
+// Register background handler (must be module-level)
+try {
+  registerBackgroundHandler();
+} catch (e) {
+  console.warn('[Layout] Background handler registration failed:', e);
+}
 
 export default function RootLayout() {
+
   const isLoggedIn = SessionManager.getIsLoggedIn();
 
   const [fontsLoaded] = useFonts({
@@ -28,6 +54,25 @@ export default function RootLayout() {
     "Rubik-Black": require("../assets/fonts/Rubik-Black.ttf"),
     "Rubik-BlackItalic": require("../assets/fonts/Rubik-BlackItalic.ttf"),
   });
+
+  const router = useRouter()
+
+  useEffect(() => {
+    registerForPushNotifications()
+    handleQuitStateNotification(router)   // app opened from killed state
+
+    const unsub1 = listenForegroundNotifications(router)
+    const unsub2 = listenNotificationTap(router)
+    const unsub3 = listenBackgroundNotificationTap(router)
+    const unsub4 = listenTokenRefresh()
+
+    return () => {
+      unsub1()
+      unsub2()
+      unsub3()
+      unsub4()
+    }
+  }, [])
 
   if (!fontsLoaded) return null;
 
@@ -49,15 +94,14 @@ export default function RootLayout() {
   }
 
   return (
-
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
         <PaperProvider theme={theme}>
-          <Stack screenOptions={{ headerShown: false }} />
+          <NotificationProvider>
+            <Stack screenOptions={{ headerShown: false }} />
+          </NotificationProvider>
         </PaperProvider>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );
-
-
 }

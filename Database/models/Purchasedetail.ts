@@ -59,6 +59,7 @@ export default class PurchaseDetail extends Model {
     @field('cgst_2_5_purchase') cgst25Purchase!: string
     @field('sgst_2_5_purchase') sgst25Purchase!: string
     @field('rounding_up') roundingUp!: string
+    @field('tds') tds!: string
 
     // Line items as JSON string
     @field('line_items_json') lineItemsJson!: string

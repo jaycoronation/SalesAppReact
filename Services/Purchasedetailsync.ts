@@ -53,6 +53,7 @@ export interface PurchaseDetailApiData {
     cgst_2_5_purchase: string
     sgst_2_5_purchase: string
     rounding_up: string
+    tds: string | null
     fiscal_year: string
     remarks: string
     created_at: string
@@ -123,6 +124,7 @@ function applyDetailFields(record: PurchaseDetail, d: PurchaseDetailApiData): vo
     record.cgst25Purchase = safeStr(d.cgst_2_5_purchase)
     record.sgst25Purchase = safeStr(d.sgst_2_5_purchase)
     record.roundingUp = safeStr(d.rounding_up)
+    record.tds = safeStr(d.tds)
     record.lineItemsJson = JSON.stringify(d.line_items ?? [])
 }
 
@@ -145,6 +147,10 @@ function getDetailCollection() {
 // ─── Sync single purchase detail ──────────────────────────────────────────────
 
 export async function syncPurchaseDetail(purchaseId: string): Promise<void> {
+    if (!purchaseId) {
+        console.warn('[syncPurchaseDetail] No purchaseId provided');
+        return;
+    }
     const { isConnected } = await NetInfo.fetch()
     if (!isConnected) {
         console.log(`Offline — serving cached detail for purchase ${purchaseId}`)
@@ -184,6 +190,7 @@ export async function syncPurchaseDetail(purchaseId: string): Promise<void> {
 // ─── Load from local DB ───────────────────────────────────────────────────────
 
 export async function loadPurchaseDetail(purchaseId: string): Promise<PurchaseDetail | null> {
+    if (!purchaseId) return null;
     const collection = getDetailCollection()
     if (!collection) return null
 

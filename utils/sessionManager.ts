@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { database } from "@/Database";
 
 export const SessionManager = {
   setSession: async (data: any) => {
@@ -34,17 +35,50 @@ export const SessionManager = {
     };
   },
 
+  setFCMToken: async (token: string): Promise<void> => {
+    await AsyncStorage.setItem('fcm_token', token)
+  },
+  getFCMToken: async () => await AsyncStorage.getItem("fcm_token"),
+
+
   // ✅ Clear session
   clearSession: async () => {
-    await AsyncStorage.multiRemove([
-      "token",
-      "user_id",
-      "name",
-      "email",
-      "country_code",
-      "contact_no",
-      "profile_pic",
-      "isLogged",
-    ]);
+    try {
+      // Clear all AsyncStorage data (tokens, filters, user info, etc.)
+      await AsyncStorage.clear();
+
+      // Clear local database (WatermelonDB)
+      await database.write(async () => {
+        await database.unsafeResetDatabase();
+      });
+      
+      console.log("Session and database cleared successfully");
+    } catch (e) {
+      console.log("Error clearing session and database", e);
+    }
+  },
+
+  // ✅ Dashboard filter persistence
+  setDashFilter: async (month: number, year: number, fy: string) => {
+    try {
+      await AsyncStorage.setItem("dash_month", month.toString());
+      await AsyncStorage.setItem("dash_year", year.toString());
+      await AsyncStorage.setItem("dash_fy", fy);
+    } catch (e) {
+      console.log("Error saving dash filter", e);
+    }
+  },
+
+  getDashFilter: async () => {
+    try {
+      const m = await AsyncStorage.getItem("dash_month");
+      const y = await AsyncStorage.getItem("dash_year");
+      const fy = await AsyncStorage.getItem("dash_fy");
+      if (m && y && fy) return { month: parseInt(m), year: parseInt(y), fy };
+      return null;
+    } catch (e) {
+      console.log("Error getting dash filter", e);
+      return null;
+    }
   },
 };

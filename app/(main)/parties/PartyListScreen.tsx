@@ -1,6 +1,8 @@
+import NotificationBell from '@/components/NotificationBell'
 import Party from '@/Database/models/Party'
 import { loadParties, syncParties } from '@/Services/Partysync'
 import { Colors } from '@/utils/colors'
+import { Ionicons } from '@expo/vector-icons'
 import { router, Stack } from 'expo-router'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -16,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { ShimmerBox } from '@/components/Shimmer'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -293,6 +296,50 @@ function PartyCard({ item }: { item: Party }) {
   )
 }
 
+// ─── Shimmer Loading Layout ──────────────────────────────────────────────────
+
+function ShimmerPartyList() {
+  return (
+    <View style={s.container}>
+      {/* Header Shimmer */}
+      <View style={s.header}>
+        <View style={s.titleRow}>
+          <ShimmerBox width={120} height={24} />
+          <View style={s.headerRight}>
+            <ShimmerBox width={80} height={30} borderRadius={20} />
+          </View>
+        </View>
+      </View>
+
+      {/* List Shimmer */}
+      <View style={{ paddingHorizontal: 16, gap: 10 }}>
+        {[1, 2, 3, 4, 5].map(i => (
+          <View key={i} style={cardStyles.card}>
+            <View style={cardStyles.topRow}>
+              <ShimmerBox width="60%" height={16} />
+              <ShimmerBox width={60} height={18} borderRadius={5} />
+            </View>
+            <ShimmerBox width="40%" height={12} style={{ marginTop: 4, marginBottom: 15 }} />
+            <View style={cardStyles.summaryRow}>
+              <View style={cardStyles.summaryBlock}>
+                <ShimmerBox width={40} height={10} style={{ marginBottom: 4 }} />
+                <ShimmerBox width={80} height={16} style={{ marginBottom: 4 }} />
+                <ShimmerBox width="90%" height={11} />
+              </View>
+              <View style={cardStyles.summaryDivider} />
+              <View style={cardStyles.summaryBlock}>
+                <ShimmerBox width={40} height={10} style={{ marginBottom: 4 }} />
+                <ShimmerBox width={80} height={16} style={{ marginBottom: 4 }} />
+                <ShimmerBox width="90%" height={11} />
+              </View>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function PartyListScreen() {
@@ -397,11 +444,10 @@ export default function PartyListScreen() {
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (allParties.length === 0 && syncing) {
     return (
-      <View style={s.center}>
+      <>
         <Stack.Screen options={{ title: 'Parties', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
-        <ActivityIndicator size="large" color={Colors.brandColor} />
-        <Text style={s.loadingText}>Loading parties…</Text>
-      </View>
+        <ShimmerPartyList />
+      </>
     )
   }
 
@@ -412,11 +458,14 @@ export default function PartyListScreen() {
         options={{
           headerShown: true,
           title: 'Parties',
-          headerBackButtonDisplayMode: "minimal",
+          headerBackVisible: true,
+          headerTintColor: Colors.brandColor,
+
           headerRight: () => (
-            <View style={{ marginRight: 12 }}>
+            <View style={{ marginRight: 12, flexDirection: 'row', alignItems: 'center' }}>
+              <NotificationBell color={Colors.brandColor} />
               <TouchableOpacity onPress={() => setIsSearchVisible(!isSearchVisible)}>
-                <Text style={s.searchIcon}>🔍</Text>
+                <Ionicons name="search" size={22} color={Colors.brandColor} />
               </TouchableOpacity>
             </View>
           ),
@@ -427,8 +476,8 @@ export default function PartyListScreen() {
       <View style={s.header}>
         <View style={s.titleRow}>
           <View>
-            <Text style={s.title}>Parties</Text>
-            <Text style={s.subtitle}>{filtered.length} of {allParties.length} records</Text>
+            {/* <Text style={s.title}>Parties</Text> */}
+            {/* <Text style={s.subtitle}>{filtered.length} of {allParties.length} records</Text> */}
           </View>
           <View style={s.headerRight}>
             {syncing && !refreshing && (
@@ -452,7 +501,7 @@ export default function PartyListScreen() {
 
         {/* Search */}
         {isSearchVisible && <View style={s.searchWrap}>
-          <Text style={s.searchIcon}>🔍</Text>
+          <Ionicons name="search" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
           <TextInput
             style={s.searchInput}
             placeholder="Search name or GSTIN…"
@@ -571,7 +620,7 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, backgroundColor: '#F3F4F6' },
   loadingText: { fontSize: 14, color: '#6B7280' },
   listContent: { paddingHorizontal: 16, paddingBottom: 16 },
-  footer: { height: 32 },
+  footer: { height: 120 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyText: { fontSize: 15, fontWeight: '600', color: '#374151' },
   emptyHint: { fontSize: 13, color: '#9CA3AF' },
@@ -598,7 +647,6 @@ const s = StyleSheet.create({
   filterBtnTextActive: { color: Colors.brandColor },
 
   searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, borderWidth: 0.5, borderColor: '#E5E7EB', marginBottom: 10 },
-  searchIcon: { fontSize: 14, marginLeft: 8 },
   searchInput: { flex: 1, fontSize: 14, color: '#111827', padding: 0 },
   clearBtn: { fontSize: 13, color: '#9CA3AF', paddingLeft: 8 },
 

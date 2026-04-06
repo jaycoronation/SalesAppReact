@@ -2,8 +2,10 @@ import { loginAPI } from "@/network/authService";
 import { AppUtils, isValidEmail } from "@/utils/AppUtils";
 import { Fonts } from "@/utils/fonts";
 import { SessionManager } from "@/utils/sessionManager";
+import { AuthorizationStatus, getMessaging, getToken, requestPermission } from '@react-native-firebase/messaging';
+import * as Device from 'expo-device';
 import { Stack, useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   KeyboardAvoidingView,
@@ -14,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { TextInput } from "react-native-paper";
+
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const T = {
@@ -128,10 +131,16 @@ export default function LoginScreen() {
   const callAPI = async () => {
     try {
       setIsLoading(true)
-      const res = await loginAPI(username, password)
+
+      const deviceToken = await SessionManager.getFCMToken();
+      console.log("deviceToken", deviceToken);
+
+      const modelName = Device.modelName
+
+      const res = await loginAPI(username, password, deviceToken || '', modelName || '', Platform.OS == 'ios' ? 'ios' : 'android')
       if (res.success && res.data.success === 1) {
         await SessionManager.setSession(res.data)
-        router.push('/BottomNavigation')
+        router.replace('/(main)/dashboard/BottomNavigation')
       } else {
         AppUtils.showToast(res.data?.message || 'Login failed')
       }
@@ -139,6 +148,30 @@ export default function LoginScreen() {
       AppUtils.showToast('Something went wrong')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    getFirebaseToken();
+  }, []);
+
+  const getFirebaseToken = async () => {
+    try {
+      // iOS requires explicit permission; Android grants it by default
+      const authStatus = await requestPermission(getMessaging())
+      const isGranted =
+        authStatus === AuthorizationStatus.AUTHORIZED ||
+        authStatus === AuthorizationStatus.PROVISIONAL
+
+      if (isGranted) {
+        const fcmToken = await getToken(getMessaging())
+        if (fcmToken) {
+          await SessionManager.setFCMToken(fcmToken)
+        }
+      }
+    } catch (fcmError) {
+      // Non-fatal — don't block login if push permission is denied
+      console.warn('FCM token error:', fcmError)
     }
   }
 
@@ -216,9 +249,9 @@ export default function LoginScreen() {
             />
 
             {/* ── Forgot password ──────────────────────────────── */}
-            <Pressable 
-              style={styles.forgotRow} 
-              onPress={() => router.push('/ForgotPasswordScreen')}
+            <Pressable
+              style={styles.forgotRow}
+              onPress={() => router.push('/(auth)/forgot-password')}
             >
               <Text style={styles.forgotText}>Forgot password?</Text>
             </Pressable>

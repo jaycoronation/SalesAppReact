@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "306606999279",
+    "project_id": "sps-velocity",
+    "storage_bucket": "sps-velocity.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:306606999279:android:8d17f1f0184db0f7fc7d1a",
+        "android_client_info": {
+          "package_name": "com.application.spssales"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBLlXM2y04PVOLIvCB_rzr06_U2B_nRrUk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,7 +1,8 @@
 import PurchaseDetail, { PurchaseLineItem } from '@/Database/models/Purchasedetail'
 import { loadPurchaseDetail, syncPurchaseDetail } from '@/Services/Purchasedetailsync'
 import { Colors } from '@/utils/colors'
-import { Stack, useLocalSearchParams } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
+import { router, Stack, useLocalSearchParams } from 'expo-router'
 import React, { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
@@ -11,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { ShimmerBox } from '@/components/Shimmer'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -99,6 +101,59 @@ function LineItemRow({ item, last }: { item: PurchaseLineItem; last: boolean }) 
   )
 }
 
+// ─── Shimmer Loading Layout ──────────────────────────────────────────────────
+
+function ShimmerPurchaseDetail() {
+  return (
+    <View style={s.container}>
+      <View style={s.content}>
+        {/* Hero Card Shimmer */}
+        <View style={s.heroCard}>
+          <View style={[s.heroTop, { marginBottom: 20 }]}>
+            <View style={s.heroLeft}>
+              <ShimmerBox width="60%" height={24} style={{ marginBottom: 8 }} />
+              <ShimmerBox width="40%" height={14} />
+            </View>
+          </View>
+          <View style={{ marginBottom: 20 }}>
+            <ShimmerBox width="30%" height={16} />
+          </View>
+          <View style={[s.datesRow, { backgroundColor: '#F9FAFB' }]}>
+            <View style={{ flex: 1 }}><ShimmerBox height={30} /></View>
+            <View style={s.dateDivider} />
+            <View style={{ flex: 1 }}><ShimmerBox height={30} /></View>
+            <View style={s.dateDivider} />
+            <View style={{ flex: 1 }}><ShimmerBox height={30} /></View>
+          </View>
+          <ShimmerBox height={60} style={{ marginTop: 10 }} />
+        </View>
+
+        {/* Section Cards Shimmer */}
+        <View style={s.sectionCard}>
+          <View style={[s.sectionTitle, { backgroundColor: '#FAFAFA' }]}>
+            <ShimmerBox width={80} height={14} />
+          </View>
+          <View style={{ padding: 14, gap: 12 }}>
+            <ShimmerBox height={40} />
+            <ShimmerBox height={40} />
+            <ShimmerBox height={40} />
+          </View>
+        </View>
+
+        <View style={s.sectionCard}>
+          <View style={[s.sectionTitle, { backgroundColor: '#FAFAFA' }]}>
+            <ShimmerBox width={100} height={14} />
+          </View>
+          <View style={{ padding: 14, gap: 12 }}>
+            <ShimmerBox height={20} />
+            <ShimmerBox height={20} />
+            <ShimmerBox height={20} />
+          </View>
+        </View>
+      </View>
+    </View>
+  )
+}
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function PurchaseDetailScreen() {
@@ -134,11 +189,22 @@ export default function PurchaseDetailScreen() {
   // ── Spinner — no cache yet OR actively syncing with no data ───────────────
   if (loading) {
     return (
-      <View style={s.center}>
-        <Stack.Screen options={{ title: 'Purchase Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
-        <ActivityIndicator size="large" color={Colors.brandColor} />
-        <Text style={s.loadingText}>Loading…</Text>
-      </View>
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            headerBackTitle: '',
+            headerTintColor: Colors.brandColor,
+            title: 'Loading Purchase...',
+            headerLeft: () => (
+              <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+                <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+              </TouchableOpacity>
+            ),
+          }}
+        />
+        <ShimmerPurchaseDetail />
+      </>
     )
   }
 
@@ -171,7 +237,13 @@ export default function PurchaseDetailScreen() {
       contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
     >
-      <Stack.Screen options={{ title: detail.voucherNo || 'Purchase Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
+      <Stack.Screen options={{
+        title: detail.voucherNo || 'Purchase Detail', headerShown: true, headerBackButtonDisplayMode: "minimal", headerLeft: () => (
+          <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+            <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+          </TouchableOpacity>
+        ),
+      }} />
 
       {/* ── Hero card ──────────────────────────────────────────────────────── */}
       <View style={s.heroCard}>
@@ -262,6 +334,7 @@ export default function PurchaseDetailScreen() {
         {detail.polishingMaterialExp && <InfoRow label="Polishing" value={formatAmount(detail.polishingMaterialExp)} />}
         {detail.miscExp && <InfoRow label="Misc exp" value={formatAmount(detail.miscExp)} />}
         {detail.roundingUp && <InfoRow label="Rounding" value={`₹ ${detail.roundingUp}`} />}
+        {detail.tds && <InfoRow label="TDS" value={formatAmount(detail.tds)} />}
         <InfoRow label="Gross total" value={formatAmount(detail.grossTotal)} accent="red" last />
       </SectionCard>
 
