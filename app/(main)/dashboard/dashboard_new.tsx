@@ -762,8 +762,18 @@ export default function DashboardScreen() {
         <Stack.Screen
           options={{
             headerShown: true,
-            title: 'Dashboard',
+            headerBackTitle: '',
+            headerBackVisible: true,
             headerTintColor: Colors.brandColor,
+            title: 'Dashboard',
+            headerRight: () => (
+              <View style={{ marginRight: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <NotificationBell color={Colors.brandColor} />
+                <TouchableOpacity onPress={() => router.push('/profile/ProfileScreen')}>
+                  <Ionicons name="person-circle-outline" size={28} color={Colors.brandColor} />
+                </TouchableOpacity>
+              </View>
+            ),
           }}
         />
         <DashboardShimmer />

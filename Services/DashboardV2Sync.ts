@@ -38,6 +38,7 @@ export async function syncDashboardV2(month: number, year: number): Promise<void
         )
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
+        console.log(res.url);
         const json = await res.json()
         if (!json.success) throw new Error(json.message)
 
@@ -139,7 +140,7 @@ export async function syncUpcomingPayments(
                 }),
             )
 
-            await database.batch(...deleteBatch, ...insertBatch)
+            await database.batch([...deleteBatch, ...insertBatch])
         })
 
     } catch (err) {

@@ -130,7 +130,7 @@ async function syncPaymentPage(
             ),
         )
 
-        await database.batch(...deleteBatch, ...insertBatch)
+        await database.batch([...deleteBatch, ...insertBatch])
     })
 
     return { totalRecords: json.totalRecords }

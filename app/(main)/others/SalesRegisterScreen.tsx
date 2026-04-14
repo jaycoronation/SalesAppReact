@@ -6,10 +6,13 @@ import SalesRegisterEntry from '@/Database/models/SalesRegisterEntry'
 import { loadReceivablesAging, syncDashboardV2 } from '@/Services/DashboardV2Sync'
 import {
     BtwnDaysFilter,
+    InvoiceCounts,
     loadAllSalesRegister,
+    loadSalesInvoiceCounts,
     Section,
     syncAllSalesRegister,
 } from '@/Services/SalesRegisterSync'
+import { AppUtils } from '@/utils/AppUtils'
 import { Colors } from '@/utils/colors'
 import {
     getCurrentFY,
@@ -34,13 +37,9 @@ import {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(val: number | string): string {
-    const n = typeof val === 'string' ? parseFloat(val) : val
-    if (!n || isNaN(n)) return '₹0'
-    if (n >= 1e7) return `₹${(n / 1e7).toFixed(2)} Cr`
-    if (n >= 1e5) return `₹${(n / 1e5).toFixed(1)} L`
-    return `₹${n.toLocaleString('en-IN')}`
-}
+const fmt = AppUtils.fmt
+
+const fmtForShort = AppUtils.fmtShort
 
 function nowMonthYear(): { month: number; year: number } {
     const d = new Date()
@@ -158,6 +157,9 @@ function PartyRow({
                     {fmt(item.outstanding)}
                 </Text>
                 <Text style={s.grossTotal}>{fmt(item.grossTotal)} total</Text>
+                {(item as any).invoiceCount > 1 ? (
+                    <Text style={s.invoiceCountLabel}>{(item as any).invoiceCount} invoices</Text>
+                ) : null}
                 {item.nearestDueDate ? (
                     <Text style={s.dueDateLabel}>
                         {item.section === 'due' ? 'First unpaid: ' : 'Last unpaid: '}
@@ -188,6 +190,10 @@ export default function SalesRegisterScreen() {
 
     const [isSearchVisible, setIsSearchVisible] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [invoiceCounts, setInvoiceCounts] = useState<InvoiceCounts>({
+        due: { d0_7: 0, d7_15: 0, d15_30: 0, over_30: 0, all: 0 },
+        upcoming: { d0_7: 0, d7_15: 0, d15_30: 0, over_30: 0, all: 0 },
+    })
 
     const summaries = useMemo<Record<Section, SectionSummaries>>(() => ({
         due: agingData?.due ? sectionToSummaries(agingData.due) : EMPTY_SUMMARIES,
@@ -195,7 +201,7 @@ export default function SalesRegisterScreen() {
     }), [agingData])
 
     const entries = useMemo(() => {
-        let filtered = selectedBtwn === 'all'
+        let filtered: any[] = selectedBtwn === 'all'
             ? allEntries.filter((e) => e.section === selectedSection)
             : allEntries.filter(
                 (e) => e.section === selectedSection && e.btwnDays === selectedBtwn,
@@ -213,18 +219,39 @@ export default function SalesRegisterScreen() {
                         paymentStatus: e.paymentStatus,
                         statusDisplay: e.statusDisplay,
                         section: e.section,
-                        outstanding: e.outstanding,
-                        grossTotal: e.grossTotal,
+                        outstanding: parseFloat(String(e.outstanding)) || 0,
+                        grossTotal: parseFloat(String(e.grossTotal)) || 0,
                         nearestDueDate: e.nearestDueDate,
+                        invoiceCount: 1,
                     }
                 } else {
-                    map[e.partyId].outstanding += e.outstanding
-                    map[e.partyId].grossTotal += e.grossTotal
-                    // For All bucket consolidation, we'll keep the first one found 
-                    // as the API likely provides the consolidated date.
+                    map[e.partyId].outstanding += parseFloat(String(e.outstanding)) || 0
+                    map[e.partyId].grossTotal += parseFloat(String(e.grossTotal)) || 0
+                    map[e.partyId].invoiceCount += 1
+                    // Keep the OLDEST (earliest) due date for correct sorting
+                    const existingDate = AppUtils.parseDate(map[e.partyId].nearestDueDate)
+                    const newDate = AppUtils.parseDate(e.nearestDueDate)
+                    if (newDate && (!existingDate || newDate.getTime() < existingDate.getTime())) {
+                        map[e.partyId].nearestDueDate = e.nearestDueDate
+                    }
                 }
             }
             filtered = Object.values(map)
+        } else {
+            // For specific buckets: extract fields explicitly (WatermelonDB instances can't be spread)
+            filtered = filtered.map((e) => ({
+                partyId: e.partyId,
+                partyName: e.partyName,
+                gstinUin: e.gstinUin,
+                paymentStatus: e.paymentStatus,
+                statusDisplay: e.statusDisplay,
+                section: e.section,
+                btwnDays: e.btwnDays,
+                outstanding: parseFloat(String(e.outstanding)) || 0,
+                grossTotal: parseFloat(String(e.grossTotal)) || 0,
+                nearestDueDate: e.nearestDueDate,
+                invoiceCount: 1,
+            }))
         }
 
         // Apply Search
@@ -235,6 +262,47 @@ export default function SalesRegisterScreen() {
                 (e.gstinUin && e.gstinUin.toLowerCase().includes(q))
             )
         }
+
+        // Sort by Date (Oldest First) — handles YYYY-MM-DD, DD-MM-YYYY, DD/MM/YYYY
+        const dateToMs = (dateStr: string | null | undefined): number => {
+            if (!dateStr) return Infinity;
+
+            // Try default parsing first
+            let d = new Date(dateStr);
+            if (!isNaN(d.getTime())) return d.getTime();
+
+            // Handle "27 Mar, 2026"
+            const monthMap: Record<string, number> = {
+                Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+                Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+            };
+
+            const match = dateStr.match(/^(\d{1,2})\s([A-Za-z]{3}),\s(\d{4})$/);
+            if (match) {
+                const day = parseInt(match[1]);
+                const month = monthMap[match[2]];
+                const year = parseInt(match[3]);
+
+                if (month !== undefined) {
+                    d = new Date(year, month, day);
+                    if (!isNaN(d.getTime())) return d.getTime();
+                }
+            }
+
+            // Fallback for DD-MM-YYYY / DD/MM/YYYY
+            const parts = dateStr.split(/[-\/]/);
+            if (parts.length === 3) {
+                if (parts[0].length === 2 && parts[2].length === 4) {
+                    d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                } else if (parts[0].length === 4) {
+                    d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                }
+                if (!isNaN(d.getTime())) return d.getTime();
+            }
+
+            return Infinity;
+        };
+        filtered.sort((a, b) => dateToMs(a.nearestDueDate) - dateToMs(b.nearestDueDate))
 
         return filtered
     }, [allEntries, selectedSection, selectedBtwn, searchQuery])
@@ -247,6 +315,8 @@ export default function SalesRegisterScreen() {
     const loadEntriesLocal = useCallback(async () => {
         const rows = await loadAllSalesRegister()
         setAllEntries(rows)
+        const counts = await loadSalesInvoiceCounts()
+        setInvoiceCounts(counts)
     }, [])
 
     const runSync = useCallback(async () => {
@@ -424,7 +494,7 @@ export default function SalesRegisterScreen() {
                                                 isActive && { color: scfg.dot },
                                             ]}
                                         >
-                                            {fmt(sum.outstanding)}
+                                            {fmtForShort(sum.outstanding)}
                                         </Text>
                                         <Text
                                             style={[
@@ -433,7 +503,7 @@ export default function SalesRegisterScreen() {
                                             ]}
                                             numberOfLines={1}
                                         >
-                                            {sum.count} Invoices
+                                            {invoiceCounts[sec][filter.key]} Invoices
                                         </Text>
                                     </TouchableOpacity>
                                 )
@@ -449,7 +519,7 @@ export default function SalesRegisterScreen() {
                     {cfg.label} · {activeFilter.label}
                 </Text>
                 <Text style={s.listMetaCount}>
-                    {entries.length} Parties
+                    {entries.length} {entries.length === 1 ? 'Party' : 'Parties'} · {invoiceCounts[selectedSection][selectedBtwn]} {invoiceCounts[selectedSection][selectedBtwn] === 1 ? 'Invoice' : 'Invoices'}
                 </Text>
             </View>
         </View>
@@ -667,6 +737,7 @@ const s = StyleSheet.create({
     rowRight: { alignItems: 'flex-end', gap: 2, flexShrink: 0 },
     outstanding: { fontSize: 14, fontWeight: '700' },
     grossTotal: { fontSize: 11, color: '#9CA3AF' },
+    invoiceCountLabel: { fontSize: 10, color: '#6366F1', fontWeight: '600', marginTop: 1 },
     dueDateLabel: { fontSize: 10, color: '#6B7280', marginTop: 2 },
     dueDateValue: { fontWeight: '600', color: '#374151' },
 

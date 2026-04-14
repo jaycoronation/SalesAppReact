@@ -1,10 +1,11 @@
+import { ShimmerBox } from '@/components/Shimmer'
 import { database } from '@/Database'
 import PurchaseEntry from '@/Database/models/PurchaseEntry'
 import { syncPurchases } from '@/Services/Purchasesync'
 import { Colors } from '@/utils/colors'
 import { Q } from '@nozbe/watermelondb'
-import { Stack, router } from 'expo-router'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Stack, router, useLocalSearchParams } from 'expo-router'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     ActivityIndicator,
     FlatList,
@@ -17,8 +18,6 @@ import {
 } from 'react-native'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const MONTH = 2
-const YEAR = 2026
 const PAGE_SIZE = 10
 
 const MONTH_NAMES: Record<number, string> = {
@@ -130,6 +129,42 @@ function PurchaseCard({ item, searchQuery }: { item: PurchaseEntry; searchQuery:
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function PurchaseListScreen() {
+    // ── Notification route params ──────────────────────────────────────────────
+    // due_from / due_to are Unix timestamps (seconds) passed when navigating
+    // here from a notification. They scope both the API call and the title.
+    const params = useLocalSearchParams<{ due_from?: string; due_to?: string }>()
+    const dueFrom = params.due_from ? parseInt(params.due_from, 10) : undefined
+    const dueTo = params.due_to ? parseInt(params.due_to, 10) : undefined
+
+
+    // Derive month/year from the notification timestamp if present,
+    // otherwise fall back to the current month.
+    const paramDate = dueFrom ? new Date(dueFrom * 1000) : null
+    const month = paramDate ? paramDate.getMonth() + 1 : new Date().getMonth() + 1
+    const year = paramDate ? paramDate.getFullYear() : new Date().getFullYear()
+
+    const fromNotification = paramDate != null
+
+    const cacheMonth = fromNotification ? 99 : month
+    const cacheYear = fromNotification ? 9999 : year
+
+    const dateText = useMemo(() => {
+        if (fromNotification && dueFrom && dueTo) {
+            const dFrom = new Date(dueFrom * 1000)
+            const dTo = new Date(dueTo * 1000)
+            const fFrom = `${dFrom.getDate().toString().padStart(2, '0')} ${MONTH_NAMES[dFrom.getMonth() + 1].substring(0, 3)} ${dFrom.getFullYear()}`
+            const fTo = `${dTo.getDate().toString().padStart(2, '0')} ${MONTH_NAMES[dTo.getMonth() + 1].substring(0, 3)} ${dTo.getFullYear()}`
+            return fFrom === fTo ? fFrom : `${fFrom} – ${fTo}`
+        }
+        return `${MONTH_NAMES[month]} ${year}`
+    }, [fromNotification, dueFrom, dueTo, month, year])
+
+    const [selectedMonth, setSelectedMonth] = useState(
+        paramDate ? paramDate.getMonth() + 1 : new Date().getMonth() + 1,
+    )
+    const [selectedYear, setSelectedYear] = useState(
+        paramDate ? paramDate.getFullYear() : new Date().getFullYear(),
+    )
     const [entries, setEntries] = useState<PurchaseEntry[]>([])
     const [totalRecords, setTotal] = useState(0)
     const [syncing, setSyncing] = useState(false)
@@ -154,8 +189,8 @@ export default function PurchaseListScreen() {
 
         const records = await collection
             .query(
-                Q.where('month', MONTH),
-                Q.where('year', YEAR),
+                Q.where('month', cacheMonth),
+                Q.where('year', cacheYear),
                 Q.where('page', page),
                 Q.sortBy('gross_total', Q.desc),
             )
@@ -163,7 +198,7 @@ export default function PurchaseListScreen() {
 
         if (page === 1) {
             const all = await collection
-                .query(Q.where('month', MONTH), Q.where('year', YEAR))
+                .query(Q.where('month', cacheMonth), Q.where('year', cacheYear))
                 .fetchCount()
             setTotal(all)
             allLoadedRef.current = false
@@ -175,7 +210,7 @@ export default function PurchaseListScreen() {
         }
 
         setEntries((prev) => (replace ? records : [...prev, ...records]))
-    }, [])
+    }, [cacheMonth, cacheYear])
 
     // ── Search the local DB ───────────────────────────────────────────────────
     const runSearch = useCallback(async (query: string) => {
@@ -192,8 +227,8 @@ export default function PurchaseListScreen() {
 
             const results = await collection
                 .query(
-                    Q.where('month', MONTH),
-                    Q.where('year', YEAR),
+                    Q.where('month', month),
+                    Q.where('year', year),
                     Q.or(
                         Q.where('party_name', Q.like(pattern)),
                         Q.where('voucher_no', Q.like(pattern)),
@@ -207,13 +242,12 @@ export default function PurchaseListScreen() {
         } finally {
             setSearching(false)
         }
-    }, [])
+    }, [month, year])
 
     // Debounce search input
     const onSearchChange = useCallback((text: string) => {
         setSearchQuery(text)
         if (text.trim()) {
-            // Mark as searching immediately so empty state never flashes
             setSearching(true)
         } else {
             setSearching(false)
@@ -232,24 +266,26 @@ export default function PurchaseListScreen() {
     }, [])
 
     // ── Sync then reload ───────────────────────────────────────────────────────
-    const runSync = useCallback(async () => {
-        await syncPurchases(MONTH, YEAR)
+    // Pass force=true on pull-to-refresh to bypass local cache.
+    const runSync = useCallback(async (force = false) => {
+        await syncPurchases(month, year, dueFrom, dueTo, force, cacheMonth, cacheYear)
         pageRef.current = 1
         await loadPage(1, true)
-        // Re-run search if active so results refresh after sync
         if (searchQuery.trim()) runSearch(searchQuery)
-    }, [loadPage, searchQuery, runSearch])
+    }, [loadPage, searchQuery, runSearch, month, year, dueFrom, dueTo, cacheMonth, cacheYear])
 
+    // ── Initial load and parameter reaction ─────────────────────────────────
     useEffect(() => {
+        pageRef.current = 1
         loadPage(1, true)
         setSyncing(true)
-        runSync().finally(() => setSyncing(false))
-    }, [loadPage, runSync])
+        runSync(fromNotification).finally(() => setSyncing(false))
+    }, [runSync])
 
-    // Pull-to-refresh
+    // Pull-to-refresh: force=true bypasses local cache
     const onRefresh = useCallback(async () => {
         setRefreshing(true)
-        await runSync()
+        await runSync(true)
         setRefreshing(false)
     }, [runSync])
 
@@ -270,7 +306,7 @@ export default function PurchaseListScreen() {
     // ── Loading state ─────────────────────────────────────────────────────────
     if (entries.length === 0 && syncing) {
         return (
-            <View style={styles.emptyContainer}>
+            <View style={styles.container}>
                 <Stack.Screen
                     options={{
                         title: 'Purchases',
@@ -278,10 +314,30 @@ export default function PurchaseListScreen() {
                         headerBackButtonDisplayMode: 'minimal',
                     }}
                 />
-
-                <ActivityIndicator size="large" color={Colors.brandColor} />
-                <Text style={styles.emptyText}>Loading purchases…</Text>
-                <Text style={styles.emptyHint}>Fetching from local database</Text>
+                <View style={styles.header}>
+                    <View>
+                        <Text style={styles.headerTitle}>Purchases</Text>
+                        <Text style={styles.headerSub}>{dateText} · Loading…</Text>
+                    </View>
+                </View>
+                <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 10 }}>
+                    {[1, 2, 3, 4, 5].map(i => (
+                        <View key={i} style={cardStyles.card}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                                <ShimmerBox width="60%" height={16} borderRadius={4} />
+                                <ShimmerBox width="20%" height={16} borderRadius={4} />
+                            </View>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                                <ShimmerBox width="30%" height={12} borderRadius={4} />
+                                <ShimmerBox width="40%" height={12} borderRadius={4} />
+                            </View>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                <ShimmerBox width={80} height={20} borderRadius={6} />
+                                <ShimmerBox width={100} height={20} borderRadius={6} />
+                            </View>
+                        </View>
+                    ))}
+                </View>
             </View>
         )
     }
@@ -298,8 +354,8 @@ export default function PurchaseListScreen() {
                 />
 
                 <Text style={styles.emptyText}>No purchases found</Text>
-                <Text style={styles.emptyHint}>{MONTH_NAMES[MONTH]} {YEAR}</Text>
-                <TouchableOpacity style={styles.retryBtn} onPress={runSync}>
+                <Text style={styles.emptyHint}>{dateText}</Text>
+                <TouchableOpacity style={styles.retryBtn} onPress={() => runSync(true)}>
                     <Text style={styles.retryText}>Retry</Text>
                 </TouchableOpacity>
             </View>
@@ -317,7 +373,6 @@ export default function PurchaseListScreen() {
                 }}
             />
 
-
             {/* ── Sticky header ─────────────────────────────────────────────── */}
             <View style={styles.header}>
                 <View>
@@ -325,7 +380,7 @@ export default function PurchaseListScreen() {
                     <Text style={styles.headerSub}>
                         {isSearchActive
                             ? `${displayCount} result${displayCount !== 1 ? 's' : ''} for "${searchQuery}"`
-                            : `${MONTH_NAMES[MONTH]} ${YEAR} · ${totalRecords} records`}
+                            : `${dateText} · ${totalRecords} records`}
                     </Text>
                 </View>
                 {syncing && !refreshing && (
@@ -364,7 +419,7 @@ export default function PurchaseListScreen() {
                 </View>
             </View>
 
-            {/* ── Empty search results — only shown when fully settled, no flash ── */}
+            {/* ── Empty search results ── */}
             {isSearchActive && !searching && searchResults.length === 0 ? (
                 <View style={styles.searchEmptyContainer}>
                     <Text style={styles.searchEmptyIcon}>🔍</Text>

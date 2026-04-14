@@ -113,15 +113,34 @@ function getSaleCollection() {
     }
 }
 
+// ─── Build API URL ─────────────────────────────────────────────────────────────
+
+function buildSalesUrl(
+    month: number,
+    year: number,
+    page: number,
+    dueFrom?: number,
+    dueTo?: number,
+): string {
+    let url = `${ApiEndPoints.BASE_URL}register/sales_list?month=${month}&year=${year}&page=${page}&limit=10`
+    if (dueFrom != null) url += `&due_from=${dueFrom}`
+    if (dueTo != null) url += `&due_to=${dueTo}`
+    return url
+}
+
 // ─── Sync a single page ───────────────────────────────────────────────────────
 
 async function syncSalePage(
     month: number,
     year: number,
     page: number,
+    dueFrom?: number,
+    dueTo?: number,
+    cMonth: number = month,
+    cYear: number = year,
 ): Promise<{ totalRecords: number }> {
     const res = await fetch(
-        `${ApiEndPoints.BASE_URL}register/sales_list?month=${month}&year=${year}`,
+        buildSalesUrl(month, year, page, dueFrom, dueTo),
         { method: 'GET', headers: await authHeaders() },
     )
 
@@ -136,8 +155,8 @@ async function syncSalePage(
     await database.write(async () => {
         const existing = await collection
             .query(
-                Q.where('month', month),
-                Q.where('year', year),
+                Q.where('month', cMonth),
+                Q.where('year', cYear),
                 Q.where('page', page),
             )
             .fetch()
@@ -145,33 +164,83 @@ async function syncSalePage(
         const deleteBatch = existing.map((r) => r.prepareDestroyPermanently())
         const insertBatch = json.data.map((item) =>
             collection.prepareCreate((record) =>
-                applySaleFields(record, item, month, year, page),
+                applySaleFields(record, item, cMonth, cYear, page),
             ),
         )
 
-        await database.batch(...deleteBatch, ...insertBatch)
+        await database.batch([...deleteBatch, ...insertBatch])
     })
 
     return { totalRecords: json.totalRecords }
 }
 
 // ─── Sync all pages ───────────────────────────────────────────────────────────
+//
+// Options:
+//   dueFrom / dueTo — Unix timestamps (seconds) forwarded to the API as
+//                     due_from / due_to query params (used when navigating
+//                     from a notification to scope the result set).
+//   force           — When true, always fetch from the network even if
+//                     local data already exists (used for pull-to-refresh).
 
-export async function syncSales(month: number, year: number): Promise<void> {
+export async function syncSales(
+    month: number,
+    year: number,
+    dueFrom?: number,
+    dueTo?: number,
+    force = false,
+    cacheMonth?: number,
+    cacheYear?: number,
+): Promise<void> {
+    const cMonth = cacheMonth ?? month
+    const cYear = cacheYear ?? year
+
     const { isConnected } = await NetInfo.fetch()
     if (!isConnected) {
         console.log('Offline — serving cached sales data')
         return
     }
 
+    // ── Local-first cache check ───────────────────────────────────────────────
+    // If the caller doesn't need a forced refresh and we already have records
+    // for this month/year in the local DB, skip the network round-trip.
+    if (!force) {
+        const collection = getSaleCollection()
+        if (collection) {
+            const cachedCount = await collection
+                .query(Q.where('month', cMonth), Q.where('year', cYear))
+                .fetchCount()
+
+            if (cachedCount > 0) {
+                console.log(`Sales: ${cachedCount} cached records found — skipping network sync`)
+                return
+            }
+        }
+    } else {
+        // Full wipe on force sync to remove ghost records and page shifts
+        const collection = getSaleCollection()
+        if (collection) {
+            await database.write(async () => {
+                const allCached = await collection
+                    .query(Q.where('month', cMonth), Q.where('year', cYear))
+                    .fetch()
+                const deleteBatch = allCached.map((r) => r.prepareDestroyPermanently())
+                if (deleteBatch.length > 0) {
+                    await database.batch(...deleteBatch)
+                }
+            })
+        }
+    }
+
+    // ── Network sync ──────────────────────────────────────────────────────────
     try {
-        const { totalRecords } = await syncSalePage(month, year, 1)
+        const { totalRecords } = await syncSalePage(month, year, 1, dueFrom, dueTo, cMonth, cYear)
         const totalPages = Math.ceil(totalRecords / 10)
 
         const remaining = Array.from({ length: totalPages - 1 }, (_, i) => i + 2)
         for (let i = 0; i < remaining.length; i += 5) {
             await Promise.all(
-                remaining.slice(i, i + 5).map((p) => syncSalePage(month, year, p)),
+                remaining.slice(i, i + 5).map((p) => syncSalePage(month, year, p, dueFrom, dueTo, cMonth, cYear)),
             )
         }
 

@@ -1,11 +1,19 @@
+import { FinancialYearPicker } from '@/components/FinancialYearPicker'
+import { MonthYearPicker } from '@/components/MonthYearPicker'
+import { ShimmerBox } from '@/components/Shimmer'
 import { database } from '@/Database'
 import SaleEntry from '@/Database/models/SalesEntry'
 import { syncSales } from '@/Services/salessync'
 import { Colors } from '@/utils/colors'
+import {
+  getCurrentFY,
+  MONTH_SHORT,
+} from '@/utils/fiscalYear'
+import { SessionManager } from '@/utils/sessionManager'
+import { Ionicons } from '@expo/vector-icons'
 import { Q } from '@nozbe/watermelondb'
-import { Stack, router } from 'expo-router'
+import { router, Stack, useLocalSearchParams } from 'expo-router'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import NotificationBell from '@/components/NotificationBell'
 import {
   ActivityIndicator,
   DeviceEventEmitter,
@@ -17,13 +25,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { FinancialYearPicker } from '@/components/FinancialYearPicker'
-import { MonthYearPicker } from '@/components/MonthYearPicker'
-import {
-  getCurrentFY,
-  MONTH_SHORT,
-} from '@/utils/fiscalYear'
-import { SessionManager } from '@/utils/sessionManager'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -90,7 +91,7 @@ function SaleCard({ item }: { item: SaleEntry }) {
       activeOpacity={0.7}
       onPress={() =>
         router.push({
-          pathname: '../../sale/SaleDetailScreen',
+          pathname: '/sales/SaleDetailScreen',
           params: { saleId: item.saleId },
         })
       }
@@ -134,8 +135,49 @@ function SaleCard({ item }: { item: SaleEntry }) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SalesListScreen() {
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  // ── Notification route params ──────────────────────────────────────────────
+  // due_from / due_to are Unix timestamps (seconds) passed when navigating
+  // here from a notification. They scope both the API call and the title.
+  const params = useLocalSearchParams<{ due_from?: string; due_to?: string }>()
+  const dueFrom = params.due_from ? parseInt(params.due_from, 10) : undefined
+  const dueTo = params.due_to ? parseInt(params.due_to, 10) : undefined
+
+  // Derive initial month/year from the notification timestamp if present,
+  // otherwise fall back to the current month.
+
+
+  const paramDate = dueFrom ? new Date(dueFrom * 1000) : null
+  const month = paramDate ? paramDate.getMonth() + 1 : new Date().getMonth() + 1
+  const year = paramDate ? paramDate.getFullYear() : new Date().getFullYear()
+
+  const fromNotification = paramDate != null
+
+  const cacheMonth = fromNotification ? 99 : month
+  const cacheYear = fromNotification ? 9999 : year
+
+  // const paramDate = dueFrom ? new Date(dueFrom * 1000) : null
+  // const fromNotification = paramDate != null
+
+  // const cacheMonth = fromNotification ? 99 : (paramDate ? paramDate.getMonth() + 1 : new Date().getMonth() + 1)
+  // const cacheYear = fromNotification ? 9999 : (paramDate ? paramDate.getFullYear() : new Date().getFullYear())
+
+  const dateText = useMemo(() => {
+    if (fromNotification && dueFrom && dueTo) {
+      const dFrom = new Date(dueFrom * 1000)
+      const dTo = new Date(dueTo * 1000)
+      const fFrom = `${dFrom.getDate().toString().padStart(2, '0')} ${MONTH_SHORT[dFrom.getMonth() + 1]} ${dFrom.getFullYear()}`
+      const fTo = `${dTo.getDate().toString().padStart(2, '0')} ${MONTH_SHORT[dTo.getMonth() + 1]} ${dTo.getFullYear()}`
+      return fFrom === fTo ? fFrom : `${fFrom} – ${fTo}`
+    }
+    return `${MONTH_SHORT[paramDate ? paramDate.getMonth() + 1 : new Date().getMonth() + 1]} ${paramDate ? paramDate.getFullYear() : new Date().getFullYear()}`
+  }, [fromNotification, dueFrom, dueTo, paramDate])
+
+  const [selectedMonth, setSelectedMonth] = useState(
+    paramDate ? paramDate.getMonth() + 1 : new Date().getMonth() + 1,
+  )
+  const [selectedYear, setSelectedYear] = useState(
+    paramDate ? paramDate.getFullYear() : new Date().getFullYear(),
+  )
   const [selectedFY, setSelectedFY] = useState(getCurrentFY())
   const [fyPickerVisible, setFyPickerVisible] = useState(false)
   const [pickerVisible, setPickerVisible] = useState(false)
@@ -156,15 +198,15 @@ export default function SalesListScreen() {
 
     const records = await collection
       .query(
-        Q.where('month', selectedMonth),
-        Q.where('year', selectedYear),
+        Q.where('month', cacheMonth),
+        Q.where('year', cacheYear),
         Q.sortBy('gross_total', Q.desc),
       )
       .fetch()
 
     setTotal(records.length)
     setEntries(records)
-  }, [selectedMonth, selectedYear])
+  }, [cacheMonth, cacheYear])
 
   // ── Load a page (used for infinite scroll when not filtering) ─────────────
   const loadPage = useCallback(async (page: number, replace: boolean) => {
@@ -172,8 +214,8 @@ export default function SalesListScreen() {
 
     const records = await collection
       .query(
-        Q.where('month', selectedMonth),
-        Q.where('year', selectedYear),
+        Q.where('month', cacheMonth),
+        Q.where('year', cacheYear),
         Q.where('page', page),
         Q.sortBy('gross_total', Q.desc),
       )
@@ -181,7 +223,7 @@ export default function SalesListScreen() {
 
     if (page === 1) {
       const all = await collection
-        .query(Q.where('month', selectedMonth), Q.where('year', selectedYear))
+        .query(Q.where('month', cacheMonth), Q.where('year', cacheYear))
         .fetchCount()
       setTotal(all)
       allLoadedRef.current = false
@@ -193,66 +235,47 @@ export default function SalesListScreen() {
     }
 
     setEntries((prev) => (replace ? records : [...prev, ...records]))
-  }, [selectedMonth, selectedYear])
+  }, [cacheMonth, cacheYear])
 
   // ── Sync then reload ───────────────────────────────────────────────────────
-  const runSync = useCallback(async () => {
-    await syncSales(selectedMonth, selectedYear)
+  // Pass force=true on pull-to-refresh so cached data is bypassed.
+  const runSync = useCallback(async (force = false) => {
+    await syncSales(selectedMonth, selectedYear, dueFrom, dueTo, force, cacheMonth, cacheYear)
     pageRef.current = 1
-    // If search or filter active, load all; else load page 1
     if (search.trim() || activeTab !== 'all') {
       await loadAll()
     } else {
       await loadPage(1, true)
     }
-  }, [loadPage, loadAll, search, activeTab, selectedMonth, selectedYear])
+  }, [loadPage, loadAll, search, activeTab, selectedMonth, selectedYear, dueFrom, dueTo, cacheMonth, cacheYear])
 
+  // ── Initial load and parameter reaction ─────────────────────────────────
   useEffect(() => {
-    const loadInitial = async () => {
-      const saved = await SessionManager.getDashFilter();
-      if (saved) {
-        setSelectedMonth(saved.month);
-        setSelectedYear(saved.year);
-        setSelectedFY(saved.fy);
-      }
-    };
-    loadInitial();
-
-    const sub = DeviceEventEmitter.addListener('SHARED_FILTER_CHANGED', (data: any) => {
-      setSelectedMonth(data.month);
-      setSelectedYear(data.year);
-      setSelectedFY(data.fy);
-    });
-
-    return () => sub.remove();
-  }, []);
-
-  useEffect(() => {
+    pageRef.current = 1
     loadPage(1, true)
     setSyncing(true)
-    runSync().finally(() => setSyncing(false))
-  }, [loadPage, runSync])
+    runSync(fromNotification).finally(() => setSyncing(false))
+  }, [runSync])
 
   // When search or tab changes, load all records for in-memory filtering
   useEffect(() => {
     if (search.trim() || activeTab !== 'all') {
       loadAll()
     } else {
-      // Back to paginated mode
       pageRef.current = 1
       allLoadedRef.current = false
       loadPage(1, true)
     }
   }, [search, activeTab, loadAll, loadPage])
 
+  // Pull-to-refresh: force=true bypasses local cache
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    await runSync()
+    await runSync(true)
     setRefreshing(false)
   }, [runSync])
 
   const onEndReached = useCallback(async () => {
-    // Disable infinite scroll when filtering
     if (search.trim() || activeTab !== 'all') return
     if (loadingMore || allLoadedRef.current) return
     setLoadingMore(true)
@@ -283,7 +306,7 @@ export default function SalesListScreen() {
     return list
   }, [entries, activeTab, search])
 
-  // ── Loading state ──────────────────────────────────────────────────────────
+  // ── Filter handlers (disabled when arriving from notification) ─────────────
   const handleFilterApply = useCallback((month: number, year: number) => {
     setSelectedMonth(month)
     setSelectedYear(year)
@@ -306,12 +329,48 @@ export default function SalesListScreen() {
     DeviceEventEmitter.emit('SHARED_FILTER_CHANGED', { month: m, year: y, fy })
   }, [])
 
+  // ── Loading states ─────────────────────────────────────────────────────────
   if (entries.length === 0 && syncing) {
     return (
-      <View style={styles.emptyContainer}>
-        <ActivityIndicator size="large" color={Colors.brandColor} />
-        <Text style={styles.emptyText}>Loading sales…</Text>
-        <Text style={styles.emptyHint}>Fetching from local database</Text>
+      <View style={styles.container}>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            headerBackTitle: '',
+            headerLeft: () => (
+              <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+                <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+              </TouchableOpacity>
+            ),
+            headerTintColor: Colors.brandColor,
+          }}
+        />
+        <View style={styles.header}>
+          <View style={styles.titleRow}>
+            <View>
+              <Text style={styles.headerTitle}>Sales</Text>
+              <Text style={styles.headerSub}>{dateText} · Loading…</Text>
+            </View>
+          </View>
+        </View>
+        <View style={{ paddingHorizontal: 16, gap: 10 }}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <View key={i} style={cardStyles.card}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                <ShimmerBox width="60%" height={16} borderRadius={4} />
+                <ShimmerBox width="20%" height={16} borderRadius={4} />
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                <ShimmerBox width="30%" height={12} borderRadius={4} />
+                <ShimmerBox width="40%" height={12} borderRadius={4} />
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <ShimmerBox width={80} height={20} borderRadius={6} />
+                <ShimmerBox width={100} height={20} borderRadius={6} />
+              </View>
+            </View>
+          ))}
+        </View>
       </View>
     )
   }
@@ -320,8 +379,8 @@ export default function SalesListScreen() {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>No sales records found</Text>
-        <Text style={styles.emptyHint}>{MONTH_SHORT[selectedMonth]} {selectedYear}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={runSync}>
+        <Text style={styles.emptyHint}>{dateText}</Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={() => runSync(true)}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -336,9 +395,12 @@ export default function SalesListScreen() {
           title: 'Sales',
           headerShown: true,
           headerBackTitle: '',
-          headerBackVisible: true,
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+              <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+            </TouchableOpacity>
+          ),
           headerTintColor: Colors.brandColor,
-          headerRight: () => <NotificationBell />,
         }}
       />
 
@@ -358,38 +420,41 @@ export default function SalesListScreen() {
         onClose={() => setPickerVisible(false)}
       />
 
-
       {/* Sticky header */}
       <View style={styles.header}>
         <View style={styles.headerFilters}>
           <View />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <TouchableOpacity
-              style={styles.filterBtn}
-              onPress={() => setFyPickerVisible(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.filterBtnIcon}>📅</Text>
-              <Text style={styles.filterBtnText}>{selectedFY}</Text>
-            </TouchableOpacity>
+          {/* Hide pickers when screen was opened from a notification — the
+              month is fixed to the notification's period */}
+          {!fromNotification && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity
+                style={styles.filterBtn}
+                onPress={() => setFyPickerVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.filterBtnIcon}>📅</Text>
+                <Text style={styles.filterBtnText}>{selectedFY}</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.filterBtn}
-              onPress={() => setPickerVisible(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.filterBtnText}>
-                {MONTH_SHORT[selectedMonth]} {selectedYear}
-              </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={styles.filterBtn}
+                onPress={() => setPickerVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.filterBtnText}>
+                  {MONTH_SHORT[selectedMonth]} {selectedYear}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         <View style={styles.titleRow}>
           <View>
             <Text style={styles.headerTitle}>Sales</Text>
             <Text style={styles.headerSub}>
-              {MONTH_SHORT[selectedMonth]} {selectedYear} ·{' '}
+              {dateText} ·{' '}
               {search.trim() || activeTab !== 'all'
                 ? `${filtered.length} of ${totalRecords}`
                 : totalRecords}{' '}

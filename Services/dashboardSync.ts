@@ -153,7 +153,7 @@ export async function syncTopParties(month: number, year: number): Promise<void>
         }),
       )
 
-      await database.batch(...deleteBatch, ...customerBatch, ...vendorBatch)
+      await database.batch([...deleteBatch, ...customerBatch, ...vendorBatch])
     })
   } catch (err) {
     console.warn('Top parties sync failed, using cached data:', err)
@@ -210,7 +210,7 @@ export async function syncMonthlyTrends(fiscalYear: string): Promise<void> {
         }),
       )
 
-      await database.batch(...deleteBatch, ...salesBatch, ...purchaseBatch)
+      await database.batch([...deleteBatch, ...salesBatch, ...purchaseBatch])
     })
   } catch (err) {
     console.warn('Monthly trends sync failed, using cached data:', err)

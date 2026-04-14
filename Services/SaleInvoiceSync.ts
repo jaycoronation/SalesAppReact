@@ -135,7 +135,7 @@ export async function syncSaleInvoices(
                 }),
             )
 
-            await database.batch(...deleteBatch, ...insertBatch)
+            await database.batch([...deleteBatch, ...insertBatch])
         })
 
         console.log(

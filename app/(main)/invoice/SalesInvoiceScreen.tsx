@@ -4,6 +4,7 @@ import NotificationBell from '@/components/NotificationBell'
 import { ShimmerBox } from '@/components/Shimmer'
 import SaleInvoiceEntry from '@/Database/models/SaleInvoiceEntry'
 import { InvoiceType, loadSaleInvoices, syncSaleInvoices } from '@/Services/SaleInvoiceSync'
+import { AppUtils } from '@/utils/AppUtils'
 import { Colors } from '@/utils/colors'
 import { getCurrentFY, MONTH_SHORT } from '@/utils/fiscalYear'
 import { SessionManager } from '@/utils/sessionManager'
@@ -14,6 +15,7 @@ import {
     DeviceEventEmitter,
     FlatList,
     RefreshControl,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -22,6 +24,7 @@ import {
 } from 'react-native'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+
 
 const NOW = new Date()
 const TABS: { key: InvoiceType; label: string }[] = [
@@ -55,12 +58,9 @@ const PURCHASE_CHIPS: ChipDef[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(val: number): string {
-    if (!val || isNaN(val)) return '₹0'
-    if (val >= 1e7) return `₹${(val / 1e7).toFixed(2)} Cr`
-    if (val >= 1e5) return `₹${(val / 1e5).toFixed(1)} L`
-    return `₹${val.toLocaleString('en-IN')}`
-}
+const fmt = AppUtils.fmt
+
+const fmtForShort = AppUtils.fmtShort
 
 function nowMonthYear(): { month: number; year: number } {
     const d = new Date()
@@ -231,8 +231,13 @@ function FilterChips({
     counts: Record<PaymentFilter, number>
 }) {
     return (
-        <View style={s.chipsRow}>
+        <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.chipsRow}
+        >
             {chips.map((chip) => {
+
                 const isActive = active === chip.key
                 const count = counts[chip.key]
                 return (
@@ -253,7 +258,7 @@ function FilterChips({
                     </TouchableOpacity>
                 )
             })}
-        </View>
+        </ScrollView>
     )
 }
 
@@ -349,6 +354,48 @@ export default function SalesInvoiceScreen() {
                     e.voucherNo.toLowerCase().includes(q),
             )
         }
+
+        // Sort by Date (Oldest First) — handles YYYY-MM-DD, DD-MM-YYYY, DD/MM/YYYY
+        const dateToMs = (dateStr: string | null | undefined): number => {
+            if (!dateStr) return Infinity;
+
+            // Try default parsing first
+            let d = new Date(dateStr);
+            if (!isNaN(d.getTime())) return d.getTime();
+
+            // Handle "27 Mar, 2026"
+            const monthMap: Record<string, number> = {
+                Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+                Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+            };
+
+            const match = dateStr.match(/^(\d{1,2})\s([A-Za-z]{3}),\s(\d{4})$/);
+            if (match) {
+                const day = parseInt(match[1]);
+                const month = monthMap[match[2]];
+                const year = parseInt(match[3]);
+
+                if (month !== undefined) {
+                    d = new Date(year, month, day);
+                    if (!isNaN(d.getTime())) return d.getTime();
+                }
+            }
+
+            // Fallback for DD-MM-YYYY / DD/MM/YYYY
+            const parts = dateStr.split(/[-\/]/);
+            if (parts.length === 3) {
+                if (parts[0].length === 2 && parts[2].length === 4) {
+                    d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                } else if (parts[0].length === 4) {
+                    d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                }
+                if (!isNaN(d.getTime())) return d.getTime();
+            }
+
+            return Infinity;
+        };
+        result.sort((a, b) => dateToMs(a.dueDate) - dateToMs(b.dueDate))
+
         return result
     }, [entries, paymentFilter, searchQuery, chips])
 

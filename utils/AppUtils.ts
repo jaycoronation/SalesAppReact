@@ -79,6 +79,30 @@ export const AppUtils = {
   },
 
   // =========================
+  // ✅ PARSE DATE (Handles DD-MM-YYYY and YYYY-MM-DD)
+  // =========================
+  parseDate: (dateStr: string | null | undefined): Date | null => {
+    if (!dateStr) return null;
+
+    // Try standard parsing first
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) return d;
+
+    // Handle DD-MM-YYYY
+    const parts = dateStr.split("-");
+    if (parts.length === 3) {
+      if (parts[0].length === 2 && parts[2].length === 4) {
+        // DD-MM-YYYY
+        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      } else if (parts[0].length === 4 && parts[2].length === 2) {
+        // YYYY-MM-DD (already caught by new Date usually, but just in case)
+        return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      }
+    }
+    return null;
+  },
+
+  // =========================
   // ✅ TIME FORMAT (HH:MM AM/PM)
   // =========================
   formatTime: (date: string | Date): string => {
@@ -120,6 +144,28 @@ export const AppUtils = {
   // =========================
   formatNumber: (num: number): string => {
     return num.toLocaleString("en-IN");
+  },
+
+  // =========================
+  // ✅ CURRENCY FORMAT (₹X,XX,XX,XXX.XX)
+  // =========================
+  fmt: (val: string | number | null | undefined): string => {
+    const n = typeof val === 'string' ? parseFloat(val) : (val ?? 0);
+    if (isNaN(n)) return '₹0.00';
+    return '₹' + n.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  },
+
+  fmtShort: (val: string | number | null | undefined): string => {
+    const n = typeof val === 'string' ? parseFloat(val) : (val ?? 0)
+    if (!n || isNaN(n)) return '₹0'
+    const abs = Math.abs(n)
+    const sign = n < 0 ? '−' : ''
+    if (abs >= 1e7) return `${sign}₹${(abs / 1e7).toFixed(2)} Cr`
+    if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(1)} L`
+    return `${sign}₹${abs.toLocaleString('en-IN')}`
   },
 
   // =========================

@@ -126,7 +126,7 @@ export async function syncParties(): Promise<void> {
                 collection.prepareCreate((record) => applyPartyFields(record, item)),
             )
 
-            await database.batch(...deleteBatch, ...insertBatch)
+            await database.batch([...deleteBatch, ...insertBatch])
         })
 
     } catch (err) {

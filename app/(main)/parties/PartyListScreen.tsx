@@ -1,4 +1,5 @@
 import NotificationBell from '@/components/NotificationBell'
+import { ShimmerBox } from '@/components/Shimmer'
 import Party from '@/Database/models/Party'
 import { loadParties, syncParties } from '@/Services/Partysync'
 import { Colors } from '@/utils/colors'
@@ -18,7 +19,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { ShimmerBox } from '@/components/Shimmer'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

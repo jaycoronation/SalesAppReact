@@ -15,6 +15,45 @@ import {
     View,
 } from 'react-native';
 
+// ─── Helper: compute Unix timestamp range for a full calendar month ────────
+const MONTH_MAP: Record<string, number> = {
+    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+}
+
+function parseNotifDate(createdAt: string): Date {
+    // Input: "12 Apr, 2026"  →  split into ["12", "Apr,", "2026"]
+    const parts = createdAt.trim().split(/\s+/)
+    const day = parseInt(parts[0], 10)
+    const mon = MONTH_MAP[parts[1].replace(',', '')]   // strip trailing comma
+    const year = parseInt(parts[2], 10)
+    return new Date(year, mon, day)   // local time, never NaN
+}
+
+// Full month: 1st @ 00:00:00 → last day @ 23:59:59
+function monthTimestamps(date: Date) {
+    console.log("date", date);
+    const y = date.getFullYear()
+    const m = date.getMonth()           // 0-indexed
+    const from = new Date(y, m, 1, 0, 0, 0)
+    const to = new Date(y, m + 1, 0, 23, 59, 59)  // day 0 of next month = last day of this month
+    return {
+        due_from: Math.floor(from.getTime() / 1000).toString(),
+        due_to: Math.floor(to.getTime() / 1000).toString(),
+    }
+}
+
+// Single day: start of day → end of day
+function dayTimestamps(date: Date) {
+    console.log("date", date);
+    const from = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0)
+    const to = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59)
+    return {
+        due_from: Math.floor(from.getTime() / 1000).toString(),
+        due_to: Math.floor(to.getTime() / 1000).toString(),
+    }
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Notification {
@@ -161,9 +200,11 @@ export default function NotificationScreen() {
                 }
             );
 
+            console.log("URL", response.url);
+
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const json = await response.json();
-
+            console.log("Response", json);
             if (json.success === 1) {
                 setNotifications(json.data);
             } else {
@@ -211,22 +252,42 @@ export default function NotificationScreen() {
             }
         }
 
+        // ─── In your switch ────────────────────────────────────────────────────────
         switch (item.content_type) {
-            case 'invoice_due':
-            case 'invoice_due_month':
+            case 'invoice_due_month': {
+                const { due_from, due_to } = monthTimestamps(parseNotifDate(item.created_at))
                 router.push({
-                    pathname: '/(main)/purchase/PurchaseDetailScreen',
-                    params: { purchaseId: item.content_id },
-                });
-                break;
-            case 'payment_due_month':
+                    pathname: '/(main)/sales/SalesListScreen',
+                    params: { due_from, due_to },
+                })
+                break
+            }
+            case 'invoice_due': {
+                const { due_from, due_to } = dayTimestamps(parseNotifDate(item.created_at))
                 router.push({
-                    pathname: '/payments/PaymentListScreen',
-                    params: { purchaseId: item.content_id },
-                });
-                break;
+                    pathname: '/(main)/sales/SalesListScreen',
+                    params: { due_from, due_to },
+                })
+                break
+            }
+            case 'payment_due_month': {
+                const { due_from, due_to } = monthTimestamps(parseNotifDate(item.created_at))
+                router.push({
+                    pathname: '/(main)/purchase/purchase',
+                    params: { due_from, due_to },
+                })
+                break
+            }
+            case 'payment_due': {
+                const { due_from, due_to } = dayTimestamps(parseNotifDate(item.created_at))
+                router.push({
+                    pathname: '/(main)/purchase/purchase',
+                    params: { due_from, due_to },
+                })
+                break
+            }
             default:
-                break;
+                break
         }
     };
 

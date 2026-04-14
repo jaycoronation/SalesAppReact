@@ -1,6 +1,7 @@
 import UpcomingPayment from '@/Database/models/Upcomingpayment'
 import { loadUpcomingPayments, syncUpcomingPayments } from '@/Services/DashboardV2Sync'
 import { Colors } from '@/utils/colors'
+import { AppUtils } from '@/utils/AppUtils'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import React, { useCallback, useEffect, useState } from 'react'
 import {
@@ -22,12 +23,7 @@ type ActiveTab = 'overdue' | 'upcoming'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(val: number): string {
-  if (!val || isNaN(val)) return '₹0'
-  if (val >= 1e7) return `₹${(val / 1e7).toFixed(2)} Cr`
-  if (val >= 1e5) return `₹${(val / 1e5).toFixed(1)} L`
-  return `₹${val.toLocaleString('en-IN')}`
-}
+const fmt = AppUtils.fmt
 
 function formatUnix(ts: number): string {
   if (!ts) return '—'

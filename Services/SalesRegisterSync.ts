@@ -2,6 +2,7 @@ import { database } from '@/Database'
 import SalesRegisterEntry from '@/Database/models/SalesRegisterEntry'
 import { ApiEndPoints } from '@/network/ApiEndPoint'
 import { SessionManager } from '@/utils/sessionManager'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Collection, Q } from '@nozbe/watermelondb'
 import NetInfo from '@react-native-community/netinfo'
 
@@ -65,6 +66,45 @@ function getCollection(): Collection<SalesRegisterEntry> | null {
     }
 }
 
+// ─── Invoice counts stored in AsyncStorage ───────────────────────────────────
+
+const INVOICE_COUNTS_KEY = 'sales_register_invoice_counts'
+
+export type InvoiceCounts = Record<Section, Record<BtwnDays | 'all', number>>
+
+const EMPTY_INVOICE_COUNTS: InvoiceCounts = {
+    due: { d0_7: 0, d7_15: 0, d15_30: 0, over_30: 0, all: 0 },
+    upcoming: { d0_7: 0, d7_15: 0, d15_30: 0, over_30: 0, all: 0 },
+}
+
+async function updateInvoiceCounts(
+    btwnDays: BtwnDays,
+    dueCount: number,
+    upcomingCount: number,
+): Promise<void> {
+    try {
+        const stored = await AsyncStorage.getItem(INVOICE_COUNTS_KEY)
+        const counts: InvoiceCounts = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(EMPTY_INVOICE_COUNTS))
+        counts.due[btwnDays] = dueCount
+        counts.upcoming[btwnDays] = upcomingCount
+        // Recompute 'all' totals
+        counts.due.all = ALL_BTWN_DAYS.reduce((s, k) => s + (counts.due[k] ?? 0), 0)
+        counts.upcoming.all = ALL_BTWN_DAYS.reduce((s, k) => s + (counts.upcoming[k] ?? 0), 0)
+        await AsyncStorage.setItem(INVOICE_COUNTS_KEY, JSON.stringify(counts))
+    } catch (e) {
+        console.warn('[salesRegisterSync] failed to save invoice counts:', e)
+    }
+}
+
+export async function loadSalesInvoiceCounts(): Promise<InvoiceCounts> {
+    try {
+        const stored = await AsyncStorage.getItem(INVOICE_COUNTS_KEY)
+        return stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(EMPTY_INVOICE_COUNTS))
+    } catch {
+        return JSON.parse(JSON.stringify(EMPTY_INVOICE_COUNTS))
+    }
+}
+
 function buildInsertBatch(
     col: Collection<SalesRegisterEntry>,
     items: PartyItem[],
@@ -102,6 +142,13 @@ async function syncBucket(btwnDays: BtwnDays): Promise<void> {
     const col = getCollection()
     if (!col) throw new Error('sales_register_entries collection is null')
 
+    // Save invoice counts from this bucket response
+    await updateInvoiceCounts(
+        btwnDays,
+        parseInt(String(json.due.total_invoices ?? '0')) || 0,
+        parseInt(String(json.upcoming.total_invoices ?? '0')) || 0,
+    )
+
     await database.write(async () => {
         // Delete stale rows for this bucket (both sections)
         const existing = await col.query(Q.where('btwn_days', btwnDays)).fetch()
@@ -115,7 +162,7 @@ async function syncBucket(btwnDays: BtwnDays): Promise<void> {
             ...buildInsertBatch(col, upcomingItems, 'upcoming', btwnDays),
         ]
 
-        await database.batch(...deleteBatch, ...insertBatch)
+        await database.batch([...deleteBatch, ...insertBatch])
     })
 }
 
@@ -141,5 +188,5 @@ export async function syncAllSalesRegister(): Promise<void> {
 export async function loadAllSalesRegister(): Promise<SalesRegisterEntry[]> {
     const col = getCollection()
     if (!col) return []
-    return col.query(Q.sortBy('party_name', Q.asc)).fetch()
+    return col.query(Q.sortBy('nearest_due_date', Q.asc)).fetch()
 }
