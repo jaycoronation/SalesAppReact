@@ -917,6 +917,18 @@ export default function DashboardScreen() {
             </Text>
           </View>
         </View>
+        <TouchableOpacity
+          style={s.breakdownBtn}
+          activeOpacity={0.7}
+          onPress={() =>
+            router.push({
+              pathname: '/others/ProfitLossBreakdownScreen',
+              params: { month: String(selectedMonth), year: String(selectedYear), fy: selectedFY },
+            })
+          }
+        >
+          <Text style={s.breakdownBtnText}>View Breakdown →</Text>
+        </TouchableOpacity>
       </View>
 
       {/* ── Conversion & Generate ────────────────────────────────────── */}

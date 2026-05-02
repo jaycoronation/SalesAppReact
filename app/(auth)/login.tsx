@@ -1,5 +1,6 @@
 import { loginAPI } from "@/network/authService";
 import { AppUtils, isValidEmail } from "@/utils/AppUtils";
+import { Colors } from "@/utils/colors";
 import { Fonts } from "@/utils/fonts";
 import { SessionManager } from "@/utils/sessionManager";
 import { AuthorizationStatus, getMessaging, getToken, requestPermission } from '@react-native-firebase/messaging';
@@ -78,6 +79,7 @@ function ThemedInput({
         onChangeText={onChangeText}
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
+        selectionColor={Colors.brandColor}
         textContentType={textContentType}
         autoCapitalize={autoCapitalize ?? 'none'}
         autoCorrect={false}

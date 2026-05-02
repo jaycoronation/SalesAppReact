@@ -1,5 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { database } from "@/Database";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const SessionManager = {
   setSession: async (data: any) => {
@@ -51,7 +51,7 @@ export const SessionManager = {
       await database.write(async () => {
         await database.unsafeResetDatabase();
       });
-      
+
       console.log("Session and database cleared successfully");
     } catch (e) {
       console.log("Error clearing session and database", e);
