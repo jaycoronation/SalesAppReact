@@ -1,5 +1,5 @@
-const BASE_URL = "https://sps-velocity.onrender.com/api/";
-// const BASE_URL = "http://192.168.29.245:5000/api/";
+// const BASE_URL = "https://sps-velocity.onrender.com/api/";
+const BASE_URL = "http://192.168.29.245:5000/api/";
 
 export const ApiEndPoints = {
   BASE_URL,
@@ -8,6 +8,7 @@ export const ApiEndPoints = {
   DASHBOARD_MONTHLY_TREND: `${BASE_URL}register/dashboard_monthly-trend`,
   DASHBOARD_TOP_CUSTOMER_VENDOR: `${BASE_URL}register/dashboard_top-parties`,
   DASHBOARD_INVOICES_LIST: `${BASE_URL}dashboard/recent-invoices`,
+  DASHBOARD_PROFIT_LOSS: `${BASE_URL}dashboard/getProfitLoss`,
   USER_PROFILE: `${BASE_URL}users/profile`,
   UPDATE_PROFILE: `${BASE_URL}users/save`,
   GET_COUNTRIES: `${BASE_URL}admin/country`,

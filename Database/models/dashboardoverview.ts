@@ -1,3 +1,4 @@
+import { StockGradeSummaryMap } from '@/Services/DashboardV2Sync'
 import { Model } from '@nozbe/watermelondb'
 import { date, field, readonly } from '@nozbe/watermelondb/decorators'
 
@@ -193,10 +194,17 @@ export default class DashboardOverviewV2 extends Model {
     /** NEW — requires schema migration (addColumns above) */
     @field('conversion_generate_json') conversionGenerateJson!: string
 
+    @field('stock_grade_summary_json') stockGradeSummaryJson!: string
+
+
     @readonly @date('created_at') createdAt!: Date
     @readonly @date('updated_at') updatedAt!: Date
 
     // ── Parsed getters ─────────────────────────────────────────────────────────
+
+    get stockGradeSummary(): StockGradeSummaryMap | null {
+        try { return JSON.parse(this.stockGradeSummaryJson || '{}') } catch { return null }
+    }
 
     get kpi(): { sales: KpiSales; purchases: KpiPurchases; gst: KpiGst; tds: KpiTds } {
         try { return JSON.parse(this.kpiJson || '{}') } catch { return {} as any }

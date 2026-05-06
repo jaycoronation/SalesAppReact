@@ -311,6 +311,7 @@ export default function PurchaseListScreen() {
                     options={{
                         title: 'Purchases',
                         headerShown: true,
+                        animation: 'none',
                         headerBackButtonDisplayMode: 'minimal',
                     }}
                 />
@@ -349,6 +350,7 @@ export default function PurchaseListScreen() {
                     options={{
                         title: 'Purchases',
                         headerShown: true,
+                        animation: 'none',
                         headerBackButtonDisplayMode: 'minimal',
                     }}
                 />
@@ -369,6 +371,7 @@ export default function PurchaseListScreen() {
                 options={{
                     title: 'Purchases',
                     headerShown: true,
+                    animation: 'none',
                     headerBackButtonDisplayMode: 'minimal',
                 }}
             />

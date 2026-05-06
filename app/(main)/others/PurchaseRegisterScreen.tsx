@@ -593,7 +593,7 @@ export default function PurchaseRegisterScreen() {
                         title: 'Payables',
                         headerBackTitle: '',
                         headerShown: true,
-                        headerBackVisible: true,
+                        animation: 'none',
                         headerTintColor: Colors.brandColor,
                     }}
                 />
@@ -611,6 +611,7 @@ export default function PurchaseRegisterScreen() {
                     headerBackTitle: '',
                     headerShown: true,
                     headerBackVisible: true,
+                    animation: 'none',
                     headerTintColor: Colors.brandColor,
                     headerRight: () => (
                         <View style={{ marginRight: 12, flexDirection: 'row', alignItems: 'center', gap: 16 }}>

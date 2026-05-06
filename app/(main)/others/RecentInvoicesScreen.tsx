@@ -1,13 +1,19 @@
+import { FinancialYearPicker } from '@/components/FinancialYearPicker';
+import { MonthYearPicker } from '@/components/MonthYearPicker';
+import { ShimmerBox } from '@/components/Shimmer';
 import { RecentInvoiceItem } from '@/Database/models/dashboardoverview';
 import { loadDashboardV2 } from '@/Services/DashboardV2Sync';
 import { syncRecentInvoices } from '@/Services/RecentInvoicesSync';
-import { SessionManager } from '@/utils/sessionManager';
 import { Colors } from '@/utils/colors';
+import {
+  getCurrentFY,
+  MONTH_SHORT,
+} from '@/utils/fiscalYear';
+import { SessionManager } from '@/utils/sessionManager';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   DeviceEventEmitter,
   FlatList,
   RefreshControl,
@@ -15,15 +21,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import { ShimmerBox } from '@/components/Shimmer';
-import { FinancialYearPicker } from '@/components/FinancialYearPicker';
-import { MonthYearPicker } from '@/components/MonthYearPicker';
-import {
-  getCurrentFY,
-  MONTH_SHORT,
-} from '@/utils/fiscalYear';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -214,6 +213,7 @@ export default function RecentInvoicesScreen() {
             title: 'Recent Sales Invoices',
             headerShown: true,
             headerBackTitle: '',
+            animation: 'none',
             headerTintColor: Colors.brandColor,
             headerLeft: () => (
               <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
@@ -234,6 +234,7 @@ export default function RecentInvoicesScreen() {
           title: 'Recent Sales Invoices',
           headerShown: true,
           headerBackTitle: '',
+          animation: 'none',
           headerTintColor: Colors.brandColor,
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>

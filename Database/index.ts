@@ -10,10 +10,10 @@ import PaymentEntry from "./models/PaymentEntry";
 import PurchaseDetail from "./models/Purchasedetail";
 import PurchaseEntry from "./models/PurchaseEntry";
 import PurchaseRegisterEntry from './models/Purchaseregisterentry';
+import SaleInvoiceEntry from './models/SaleInvoiceEntry';
 import SalesDetail from "./models/SalesDetail";
 import SaleEntry from "./models/SalesEntry";
 import SalesRegisterEntry from './models/SalesRegisterEntry';
-import SaleInvoiceEntry from './models/SaleInvoiceEntry';
 import StockGradeDetail from "./models/StockGradeDetail";
 import TopParty from "./models/TopParty";
 import UpcomingPayment from './models/Upcomingpayment';
@@ -47,6 +47,6 @@ export const database = new Database({
     Party,
     PartyDetail,
     UpcomingPayment,
-    StockGradeDetail
+    StockGradeDetail,
   ],
 })

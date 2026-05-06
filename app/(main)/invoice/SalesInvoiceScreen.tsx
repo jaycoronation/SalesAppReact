@@ -621,6 +621,7 @@ export default function SalesInvoiceScreen() {
                         title: 'Invoices',
                         headerBackTitle: '',
                         headerShown: true,
+                        animation: 'none',
                         headerTintColor: Colors.brandColor,
                     }}
                 />
@@ -639,6 +640,7 @@ export default function SalesInvoiceScreen() {
                     headerTintColor: Colors.brandColor,
                     headerShown: true,
                     headerBackVisible: true,
+                    animation: 'none',
                     headerRight: () => (
                         <View
                             style={{

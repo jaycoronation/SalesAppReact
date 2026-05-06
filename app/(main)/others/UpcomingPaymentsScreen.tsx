@@ -1,7 +1,8 @@
+import { ShimmerBox } from '@/components/Shimmer'
 import UpcomingPayment from '@/Database/models/Upcomingpayment'
 import { loadUpcomingPayments, syncUpcomingPayments } from '@/Services/DashboardV2Sync'
-import { Colors } from '@/utils/colors'
 import { AppUtils } from '@/utils/AppUtils'
+import { Colors } from '@/utils/colors'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import React, { useCallback, useEffect, useState } from 'react'
 import {
@@ -13,7 +14,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { ShimmerBox } from '@/components/Shimmer'
 
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -106,8 +106,8 @@ function ShimmerUpcomingPayments() {
           </View>
         </View>
         <View style={s.tabsRow}>
-           <View style={{ flex: 1 }}><ShimmerBox height={35} borderRadius={10} /></View>
-           <View style={{ flex: 1 }}><ShimmerBox height={35} borderRadius={10} /></View>
+          <View style={{ flex: 1 }}><ShimmerBox height={35} borderRadius={10} /></View>
+          <View style={{ flex: 1 }}><ShimmerBox height={35} borderRadius={10} /></View>
         </View>
       </View>
 
@@ -187,6 +187,7 @@ export default function UpcomingPaymentsScreen() {
             title: 'Upcoming Payments',
             headerShown: true,
             headerBackButtonDisplayMode: "minimal",
+            animation: 'none',
           }}
         />
         <ShimmerUpcomingPayments />
@@ -202,6 +203,7 @@ export default function UpcomingPaymentsScreen() {
           title: 'Upcoming Payments',
           headerShown: true,
           headerBackButtonDisplayMode: "minimal",
+          animation: 'none',
         }}
       />
 

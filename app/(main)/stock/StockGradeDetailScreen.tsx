@@ -3,8 +3,8 @@ import {
   syncStockGradeDetail,
 } from '@/Services/StockGradeDetailSync'
 import { Colors } from '@/utils/colors'
-import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import { router, Stack, useLocalSearchParams } from 'expo-router'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -319,6 +319,7 @@ export default function StockGradeDetailScreen() {
             headerShown: true,
             headerBackTitle: '',
             headerTintColor: Colors.brandColor,
+            animation: 'none',
             headerLeft: () => (
               <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
                 <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
@@ -343,6 +344,7 @@ export default function StockGradeDetailScreen() {
           title: 'Grade Breakdown',
           headerShown: true,
           headerBackTitle: '',
+          animation: 'none',
           headerTintColor: Colors.brandColor,
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>

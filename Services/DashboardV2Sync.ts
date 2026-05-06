@@ -22,6 +22,21 @@ function safeNum(val: any): number {
     return isNaN(n) ? 0 : n
 }
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type StockGradeFilter = 'All' | '202' | '304' | '316'
+
+export interface GradeSummaryEntry {
+    grade: string
+    opening: { qty: number; value: number; avg_rate: number }
+    inward: { qty: number; value: number; avg_rate: number }
+    outward: { qty: number; value: number; avg_rate: number }
+    closing: { qty: number; value: number; avg_rate: number }
+}
+
+/** The full map stored in DB: keys are 'All' | '202' | '304' | '316' */
+export type StockGradeSummaryMap = Record<StockGradeFilter, GradeSummaryEntry>
+
 // ─── Sync dashboard overview ──────────────────────────────────────────────────
 
 export async function syncDashboardV2(month: number, year: number): Promise<void> {
@@ -71,7 +86,7 @@ export async function syncDashboardV2(month: number, year: number): Promise<void
                 record.stockOverviewJson = JSON.stringify(d.stock_overview ?? {})
                 record.stockGradeOverviewJson = JSON.stringify(d.stock_grade_overview ?? [])
 
-                // Conversion / generate (NEW)
+                // Conversion / generate
                 record.conversionGenerateJson = JSON.stringify(d.conversion_generate ?? null)
             }
 
@@ -84,6 +99,111 @@ export async function syncDashboardV2(month: number, year: number): Promise<void
 
     } catch (err) {
         console.warn('Dashboard v2 sync failed, using cached data:', err)
+    }
+}
+
+// ─── Sync stock grade summary (All / 202 / 304 / 316) ────────────────────────
+//
+// Uses a single API call to GET dashboard/getGradeSummary?month=&year=
+// which returns all grades in one response under data.grades[].
+//
+// ⚠️  MODEL UPDATE REQUIRED (if not done already):
+//   Add to your DashboardOverviewV2 WatermelonDB model:
+//
+//   Schema column:
+//     { name: 'stock_grade_summary_json', type: 'string', isOptional: true }
+//
+//   Model field + getter:
+//     @field('stock_grade_summary_json') stockGradeSummaryJson!: string
+//     get stockGradeSummary(): StockGradeSummaryMap | null {
+//       try { return JSON.parse(this.stockGradeSummaryJson) } catch { return null }
+//     }
+//
+//   Also add a DB migration incrementing the schema version.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function syncStockGradeSummary(month: number, year: number): Promise<void> {
+    const { isConnected } = await NetInfo.fetch()
+    if (!isConnected) {
+        console.log('Offline — serving cached stock grade summary')
+        return
+    }
+
+    try {
+        const res = await fetch(
+            `${ApiEndPoints.BASE_URL}dashboard/getGradeSummary?month=${month}&year=${year}`,
+            { method: 'GET', headers: await authHeaders() },
+        )
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+        const json = await res.json()
+        if (!json.success) throw new Error(json.message)
+
+        const grades: Array<any> = json.data?.grades ?? []
+
+        // Build the summary map from the returned grades array.
+        // The API returns grade as 'ALL' | 202 | 304 | 316 (number for specific grades).
+        // We normalise to our StockGradeFilter keys: 'All' | '202' | '304' | '316'.
+        const summaryMap: Partial<StockGradeSummaryMap> = {}
+
+        for (const entry of grades) {
+            const rawGrade = String(entry.grade).toUpperCase()
+
+            const normalised: StockGradeFilter | null =
+                rawGrade === 'ALL' ? 'All' :
+                    rawGrade === '202' ? '202' :
+                        rawGrade === '304' ? '304' :
+                            rawGrade === '316' ? '316' :
+                                null
+
+            if (!normalised) continue
+
+            summaryMap[normalised] = {
+                grade: normalised,
+                opening: {
+                    qty: safeNum(entry.opening?.qty),
+                    value: safeNum(entry.opening?.value),
+                    avg_rate: safeNum(entry.opening?.avg_rate),
+                },
+                inward: {
+                    qty: safeNum(entry.inward?.qty),
+                    value: safeNum(entry.inward?.value),
+                    avg_rate: safeNum(entry.inward?.avg_rate),
+                },
+                outward: {
+                    qty: safeNum(entry.outward?.qty),
+                    value: safeNum(entry.outward?.value),
+                    avg_rate: safeNum(entry.outward?.avg_rate),
+                },
+                closing: {
+                    qty: safeNum(entry.closing?.qty),
+                    value: safeNum(entry.closing?.value),
+                    avg_rate: safeNum(entry.closing?.avg_rate),
+                },
+            }
+        }
+
+        console.log('Stock Grade Summary map:', summaryMap)
+
+        // Persist inside the existing dashboard_overview_v2 row
+        const collection = database.get<DashboardOverviewV2>('dashboard_overview_v2')
+
+        await database.write(async () => {
+            const existing = await collection
+                .query(Q.where('month', month), Q.where('year', year))
+                .fetch()
+
+            if (existing.length > 0) {
+                await existing[0].update(record => {
+                    record.stockGradeSummaryJson = JSON.stringify(summaryMap)
+                })
+            }
+            // If the dashboard row doesn't exist yet we simply skip —
+            // syncDashboardV2 will create it and this runs again on next pull.
+        })
+
+    } catch (err) {
+        console.warn('Stock grade summary sync failed, using cached data:', err)
     }
 }
 

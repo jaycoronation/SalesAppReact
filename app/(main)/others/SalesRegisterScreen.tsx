@@ -542,6 +542,7 @@ export default function SalesRegisterScreen() {
                     headerBackTitle: '',
                     headerShown: true,
                     headerBackVisible: true,
+                    animation: 'none',
                     headerTintColor: Colors.brandColor,
                     headerRight: () => (
                         <View style={{ marginRight: 12, flexDirection: 'row', alignItems: 'center', gap: 16 }}>

@@ -208,22 +208,23 @@ export default function PartyUpdateScreen() {
           headerShown: true,
           headerBackButtonDisplayMode: 'minimal',
           headerTintColor: Colors.brandColor,
+          animation: 'none',
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
               <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
             </TouchableOpacity>
           ),
-          headerRight: () => (
-            <TouchableOpacity
-              style={s.headerSaveBtn}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              {saving
-                ? <ActivityIndicator size="small" color="#FFFFFF" />
-                : <Text style={s.headerSaveBtnText}>Save</Text>}
-            </TouchableOpacity>
-          ),
+          // headerRight: () => (
+          //   <TouchableOpacity
+          //     style={s.headerSaveBtn}
+          //     onPress={handleSave}
+          //     disabled={saving}
+          //   >
+          //     {saving
+          //       ? <ActivityIndicator size="small" color="#FFFFFF" />
+          //       : <Text style={s.headerSaveBtnText}>Save</Text>}
+          //   </TouchableOpacity>
+          // ),
         }}
       />
 

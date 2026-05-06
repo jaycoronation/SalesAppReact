@@ -15,7 +15,10 @@ import {
   loadDashboardV2,
   observeDashboardV2,
   syncDashboardV2,
+  syncStockGradeSummary,
   syncUpcomingPayments,
+  type GradeSummaryEntry,
+  type StockGradeFilter,
 } from '@/Services/DashboardV2Sync';
 import { Colors } from '@/utils/colors';
 import {
@@ -648,7 +651,76 @@ function StockGradeTable({ grades }: { grades: StockGradeItem[] }) {
 }
 
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
+// ─── Grade Stock Summary Table (from /stocks/summary API) ────────────────────
+
+function GradeStockSummaryTable({ summary }: { summary: GradeSummaryEntry }) {
+  function fmtQty(v: number) {
+    if (!v || isNaN(v)) return '—'
+    return v.toLocaleString('en-IN', { maximumFractionDigits: 2 })
+  }
+
+  function fmtRate(v: number) {
+    if (!v || isNaN(v)) return '—'
+    return `₹${v.toFixed(2)}`
+  }
+
+  const rows: { label: string; bucket: keyof Omit<GradeSummaryEntry, 'grade'>; labelColor?: string; isBold?: boolean }[] = [
+    { label: 'Opening', bucket: 'opening' },
+    { label: 'Inward', bucket: 'inward', labelColor: '#059669' },
+    { label: 'Outward', bucket: 'outward', labelColor: '#DC2626' },
+    { label: 'Closing', bucket: 'closing', isBold: true },
+  ]
+
+  return (
+    <View style={st.tableCard}>
+      {/* Header */}
+      <View style={[st.tableRow, st.tableHead]}>
+        <Text style={[st.tableCell, st.tableHeadText, { flex: 1.4 }]}>Movement</Text>
+        <Text style={[st.tableCell, st.tableHeadText, st.right]}>Qty</Text>
+        <Text style={[st.tableCell, st.tableHeadText, st.right]}>Avg ₹</Text>
+        <Text style={[st.tableCell, st.tableHeadText, st.right]}>Value</Text>
+      </View>
+
+      {rows.map(({ label, bucket, labelColor, isBold }, i) => {
+        const b = summary[bucket]
+        const isLast = i === rows.length - 1
+        return (
+          <View
+            key={label}
+            style={[
+              st.tableRow,
+              isLast && st.tableRowLast,
+              isLast && st.tableRowTotal,
+            ]}
+          >
+            <Text style={[
+              st.tableCell, st.labelCell, { flex: 1.4 },
+              labelColor ? { color: labelColor } : {},
+              isBold ? { fontWeight: '700', color: '#111827' } : {},
+            ]}>
+              {label}
+            </Text>
+            <Text style={[
+              st.tableCell, st.right,
+              isBold ? { fontWeight: '700', color: '#111827' } : {},
+            ]}>
+              {fmtQty(b.qty)}
+            </Text>
+            <Text style={[st.tableCell, st.right]}>
+              {fmtRate(b.avg_rate)}
+            </Text>
+            <Text style={[
+              st.tableCell, st.right,
+              isBold ? { fontWeight: '700', color: '#111827' } : { fontWeight: '500' },
+            ]}>
+              {fmt(b.value)}
+            </Text>
+          </View>
+        )
+      })}
+    </View>
+  )
+}
 
 export default function DashboardScreen() {
   const [data, setData] = useState<DashboardOverviewV2 | null>(null)
@@ -664,6 +736,7 @@ export default function DashboardScreen() {
   const [selectedYear, setSelectedYear] = useState(DEFAULT_YEAR)
   const [selectedFY, setSelectedFY] = useState(getCurrentFY())
   const [fyPickerVisible, setFyPickerVisible] = useState(false)
+  const [selectedGrade, setSelectedGrade] = useState<StockGradeFilter>('All')
 
   const fiscalYear = selectedFY
 
@@ -680,6 +753,7 @@ export default function DashboardScreen() {
       syncDashboardV2(month, year),
       syncUpcomingPayments(fy, 'upcoming'),
       syncUpcomingPayments(fy, 'overdue'),
+      syncStockGradeSummary(month, year),
     ])
     await loadLocal(month, year)
   }, [loadLocal])
@@ -765,6 +839,7 @@ export default function DashboardScreen() {
             headerBackTitle: '',
             headerBackVisible: true,
             headerTintColor: Colors.brandColor,
+            animation: 'none',
             title: 'Dashboard',
             headerRight: () => (
               <View style={{ marginRight: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -810,6 +885,7 @@ export default function DashboardScreen() {
           headerBackTitle: '',
           headerBackVisible: true,
           headerTintColor: Colors.brandColor,
+          animation: 'none',
           title: 'Dashboard',
           headerRight: () => (
             <View style={{ marginRight: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -951,13 +1027,64 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      {/* ── Stock Overview ───────────────────────────────────────────────── */}
-      {stockOverview?.inwards && (
-        <View style={s.card}>
-          <SectionHeader title="Stock Summary" />
-          <StockOverviewCard stock={stockOverview} />
-        </View>
-      )}
+      {/* ── Stock Summary (Grade filtered) ──────────────────────────── */}
+      {(() => {
+        const gradeSummaryMap = data.stockGradeSummary
+        const gradeSummary: GradeSummaryEntry | null = gradeSummaryMap?.[selectedGrade] ?? null
+        const GRADE_OPTIONS: StockGradeFilter[] = ['All', '202', '304', '316']
+        const gradeColors: Record<string, string> = {
+          'All': '#6B7280',
+          '202': '#2563EB',
+          '304': '#059669',
+          '316': '#9333EA',
+        }
+
+        return (
+          <View style={s.card}>
+            {/* Header row with grade pill dropdown */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={s.sectionTitle}>Stock Summary</Text>
+              <View style={{ flexDirection: 'row', gap: 4 }}>
+                {GRADE_OPTIONS.map(g => {
+                  const isActive = selectedGrade === g
+                  const color = gradeColors[g]
+                  return (
+                    <TouchableOpacity
+                      key={g}
+                      onPress={() => setSelectedGrade(g)}
+                      style={{
+                        paddingHorizontal: 9,
+                        paddingVertical: 4,
+                        borderRadius: 20,
+                        backgroundColor: isActive ? color : color + '15',
+                        borderWidth: 1,
+                        borderColor: isActive ? color : color + '40',
+                      }}
+                    >
+                      <Text style={{
+                        fontSize: 11,
+                        fontWeight: '700',
+                        color: isActive ? '#FFFFFF' : color,
+                      }}>
+                        {g}
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </View>
+
+            {/* Table */}
+            {gradeSummary ? (
+              <GradeStockSummaryTable summary={gradeSummary} />
+            ) : (
+              <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+                <Text style={{ fontSize: 13, color: '#9CA3AF' }}>No data for grade {selectedGrade}</Text>
+              </View>
+            )}
+          </View>
+        )
+      })()}
 
       {/* ── Recent Invoices ──────────────────────────────────────────────── */}
       {recentInvoices.length > 0 && (

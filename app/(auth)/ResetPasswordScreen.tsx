@@ -136,7 +136,7 @@ export default function ResetPasswordScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{
-        title: '', headerShown: true, headerTransparent: true, headerLeft: () => (
+        title: '', headerShown: true, headerTransparent: true, animation: 'none', headerLeft: () => (
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={24} color={T.text} />
           </TouchableOpacity>

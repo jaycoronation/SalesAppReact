@@ -1,3 +1,4 @@
+import { ShimmerBox } from '@/components/Shimmer'
 import PurchaseDetail, { PurchaseLineItem } from '@/Database/models/Purchasedetail'
 import { loadPurchaseDetail, syncPurchaseDetail } from '@/Services/Purchasedetailsync'
 import { Colors } from '@/utils/colors'
@@ -12,7 +13,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { ShimmerBox } from '@/components/Shimmer'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -195,6 +195,7 @@ export default function PurchaseDetailScreen() {
             headerShown: true,
             headerBackTitle: '',
             headerTintColor: Colors.brandColor,
+            animation: 'none',
             title: 'Loading Purchase...',
             headerLeft: () => (
               <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
@@ -212,7 +213,7 @@ export default function PurchaseDetailScreen() {
   if (!detail) {
     return (
       <View style={s.center}>
-        <Stack.Screen options={{ title: 'Purchase Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
+        <Stack.Screen options={{ title: 'Purchase Detail', headerShown: true, animation: 'none', headerBackButtonDisplayMode: "minimal" }} />
         <Text style={s.errorText}>Record not found</Text>
         <TouchableOpacity style={s.retryBtn} onPress={runSync}>
           <Text style={s.retryText}>Retry</Text>
@@ -238,7 +239,10 @@ export default function PurchaseDetailScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Stack.Screen options={{
-        title: detail.voucherNo || 'Purchase Detail', headerShown: true, headerBackButtonDisplayMode: "minimal", headerLeft: () => (
+        title: detail.voucherNo || 'Purchase Detail',
+        headerShown: true,
+        animation: 'none',
+        headerBackButtonDisplayMode: "minimal", headerLeft: () => (
           <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
             <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
           </TouchableOpacity>

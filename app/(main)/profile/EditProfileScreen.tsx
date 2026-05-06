@@ -212,7 +212,7 @@ export default function EditProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Edit Profile', headerShown: true, headerBackButtonDisplayMode: 'minimal' }} />
+      <Stack.Screen options={{ title: 'Edit Profile', headerShown: true, animation: 'none', headerBackButtonDisplayMode: 'minimal' }} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll}>
           <View style={styles.form}>

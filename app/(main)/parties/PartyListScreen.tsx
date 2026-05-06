@@ -445,7 +445,7 @@ export default function PartyListScreen() {
   if (allParties.length === 0 && syncing) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Parties', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
+        <Stack.Screen options={{ title: 'Parties', headerShown: true, animation: 'none', headerBackButtonDisplayMode: "minimal" }} />
         <ShimmerPartyList />
       </>
     )
@@ -460,7 +460,7 @@ export default function PartyListScreen() {
           title: 'Parties',
           headerBackVisible: true,
           headerTintColor: Colors.brandColor,
-
+          animation: 'none',
           headerRight: () => (
             <View style={{ marginRight: 12, flexDirection: 'row', alignItems: 'center' }}>
               <NotificationBell color={Colors.brandColor} />

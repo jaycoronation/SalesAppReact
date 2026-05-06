@@ -337,6 +337,7 @@ export default function SalesListScreen() {
           options={{
             headerShown: true,
             headerBackTitle: '',
+            animation: 'none',
             headerLeft: () => (
               <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
                 <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
@@ -395,6 +396,7 @@ export default function SalesListScreen() {
           title: 'Sales',
           headerShown: true,
           headerBackTitle: '',
+          animation: 'none',
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
               <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />

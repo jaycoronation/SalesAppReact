@@ -1,3 +1,4 @@
+import { ShimmerBox } from '@/components/Shimmer'
 import PartyDetail, {
   PurchaseBillListItem,
   SaleInvoiceListItem,
@@ -15,7 +16,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { ShimmerBox } from '@/components/Shimmer'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -189,21 +189,21 @@ function ShimmerPartyDetail() {
 
         {/* Summary Card Shimmer */}
         <View style={[s.summaryCard, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0', marginBottom: 10 }]}>
-           <ShimmerBox width={60} height={14} style={{ marginBottom: 15 }} />
-           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
-              <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
-              <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
-           </View>
+          <ShimmerBox width={60} height={14} style={{ marginBottom: 15 }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
+            <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
+            <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
+          </View>
         </View>
 
         <View style={[s.summaryCard, { backgroundColor: '#FFF7ED', borderColor: '#FED7AA', marginBottom: 15 }]}>
-           <ShimmerBox width={60} height={14} style={{ marginBottom: 15 }} />
-           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
-              <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
-              <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
-           </View>
+          <ShimmerBox width={60} height={14} style={{ marginBottom: 15 }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
+            <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
+            <View style={{ alignItems: 'center' }}><ShimmerBox width={60} height={18} /><ShimmerBox width={40} height={10} style={{ marginTop: 4 }} /></View>
+          </View>
         </View>
 
         {/* Tabs Card Shimmer */}
@@ -275,6 +275,7 @@ export default function PartyDetailScreen() {
             headerShown: true,
             headerBackTitle: '',
             headerTintColor: Colors.brandColor,
+            animation: 'none',
             title: 'Loading Party...',
             headerLeft: () => (
               <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
@@ -321,14 +322,44 @@ export default function PartyDetailScreen() {
           headerBackTitle: '',
           headerTintColor: Colors.brandColor,
           title: detail?.partyName ?? 'Party Detail',
+          animation: 'none',
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
               <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
             </TouchableOpacity>
           ),
-          headerRight: () => (
-            <TouchableOpacity
-              style={s.editBtn}
+          // headerRight: () => (
+          //   <TouchableOpacity
+          //     style={s.editBtn}
+          //     activeOpacity={0.7}
+          //     onPress={() =>
+          //       router.push({
+          //         pathname: '../../parties/PartyUpdateScreen',
+          //         params: {
+          //           partyId: partyId,
+          //           partyName: detail.partyName,
+          //           gstinUin: detail.gstinUin ?? '',
+          //           partyType: detail.partyType,
+          //           address: detail.address ?? '',
+          //           email: detail.email ?? '',
+          //           phone: detail.phone ?? '',
+          //           panNo: detail.panNo ?? '',
+          //           isActive: detail.isActive ?? '1',
+          //         },
+          //       })
+          //     }
+          //   >
+          //     <Text style={s.editBtnText}>✏ Edit</Text>
+          //   </TouchableOpacity>
+          // ),
+        }}
+      />
+
+      {/* ── Hero card ──────────────────────────────────────────────────────── */}
+      <View style={s.heroCard}>
+        <View style={s.heroTop}>
+          <View style={s.heroLeft}>
+            <Text style={s.partyName}>{detail.partyName} <TouchableOpacity
               activeOpacity={0.7}
               onPress={() =>
                 router.push({
@@ -347,26 +378,20 @@ export default function PartyDetailScreen() {
                 })
               }
             >
-              <Text style={s.editBtnText}>✏ Edit</Text>
-            </TouchableOpacity>
-          ),
-        }}
-      />
+              <Text style={s.editBtnText}> ✏ </Text>
+            </TouchableOpacity></Text>
 
-      {/* ── Hero card ──────────────────────────────────────────────────────── */}
-      <View style={s.heroCard}>
-        <View style={s.heroTop}>
-          <View style={s.heroLeft}>
-            <Text style={s.partyName}>{detail.partyName}</Text>
             {!!detail.gstinUin && (
               <Text style={s.gstin}>{detail.gstinUin}</Text>
             )}
+
           </View>
           <View style={s.heroRight}>
             <View style={[s.typeBadge, { backgroundColor: typeColor.bg, borderColor: typeColor.border }]}>
               <Text style={[s.typeText, { color: typeColor.text }]}>
                 {detail.partyType.charAt(0).toUpperCase() + detail.partyType.slice(1)}
               </Text>
+
             </View>
             {syncing && <ActivityIndicator size="small" color={Colors.brandColor} style={{ marginTop: 6 }} />}
           </View>

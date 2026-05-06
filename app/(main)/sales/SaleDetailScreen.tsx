@@ -219,6 +219,7 @@ export default function SaleDetailScreen() {
             headerShown: true,
             headerBackTitle: '',
             headerTintColor: Colors.brandColor,
+            animation: 'none',
             title: 'Loading Sale...',
             headerLeft: () => (
               <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
@@ -235,7 +236,7 @@ export default function SaleDetailScreen() {
   if (!detail) {
     return (
       <View style={s.center}>
-        <Stack.Screen options={{ title: 'Sale Detail', headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
+        <Stack.Screen options={{ title: 'Sale Detail', headerShown: true, animation: 'none', headerBackButtonDisplayMode: "minimal" }} />
         <Text style={s.errorText}>{error ?? 'Sale not found'}</Text>
         <TouchableOpacity style={s.retryBtn} onPress={() => doSync(saleId)}>
           <Text style={s.retryText}>Retry</Text>
@@ -263,6 +264,7 @@ export default function SaleDetailScreen() {
           headerShown: true,
           headerBackTitle: '',
           headerTintColor: Colors.brandColor,
+          animation: 'none',
           title: detail?.voucherNo ?? 'Sale Detail',
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>

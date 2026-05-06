@@ -3,7 +3,7 @@ import { appSchema, tableSchema, } from '@nozbe/watermelondb'
 
 
 export default appSchema({
-  version: 13,
+  version: 14,
   tables: [
     tableSchema({
       name: 'dashboard_overview',
@@ -58,6 +58,7 @@ export default appSchema({
         { name: 'stock_overview_json', type: 'string', isOptional: true },
         { name: 'stock_grade_overview_json', type: 'string', isOptional: true },
         { name: 'conversion_generate_json', type: 'string', isOptional: true },
+        { name: 'stock_grade_summary_json', type: 'string', isOptional: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],
@@ -450,6 +451,20 @@ export default appSchema({
         { name: 'tab_type', type: 'string' }
       ]
     }),
+
+    tableSchema({
+      name: 'grade_summary',
+      columns: [
+        { name: 'month', type: 'number' },
+        { name: 'year', type: 'number' },
+        { name: 'grade', type: 'string', isIndexed: true }, // 'All', '202', '304', '316'
+        { name: 'opening', type: 'string' },  // JSON string: { qty, avg_rate, value }
+        { name: 'inward', type: 'string' },   // JSON string: { qty, avg_rate, value }
+        { name: 'outward', type: 'string' },  // JSON string: { qty, avg_rate, value }
+        { name: 'closing', type: 'string' },  // JSON string: { qty, avg_rate, value }
+      ]
+    })
+
 
   ],
 })

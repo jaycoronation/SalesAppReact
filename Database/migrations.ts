@@ -193,5 +193,32 @@ export default schemaMigrations({
                 }),
             ],
         },
+        {
+            toVersion: 14,
+            steps: [
+                addColumns({
+                    table: 'dashboard_overview_v2',
+                    columns: [
+                        // stock_grade_summary_json removed — use grade_summary table instead
+                        // We keep it optional here just to prevent immediate migration failure if it was somehow used elsewhere,
+                        // but ideally we should remove it entirely.
+                        { name: 'stock_grade_summary_json', type: 'string', isOptional: true },
+                    ],
+                }),
+                createTable({
+                    name: 'grade_summary',
+                    columns: [
+                        { name: 'month', type: 'number' },
+                        { name: 'year', type: 'number' },
+                        { name: 'grade', type: 'string', isIndexed: true },
+                        { name: 'opening', type: 'string' },
+                        { name: 'inward', type: 'string' },
+                        { name: 'outward', type: 'string' },
+                        { name: 'closing', type: 'string' },
+                    ],
+                }),
+            ],
+        },
+
     ],
 })
