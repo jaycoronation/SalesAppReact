@@ -9,10 +9,6 @@ export const loginAPI = async (email: string, password: string, device_token: st
   formData.append("device_token", device_token);
   formData.append("device_name", model_name);
   formData.append("device_type", device_type);
-  console.log("Url", ApiEndPoints.LOGIN);
-
-  console.log("device_type", device_type);
-  console.log("device_name", model_name);
   return apiPost(ApiEndPoints.LOGIN, formData, true);
 };
 

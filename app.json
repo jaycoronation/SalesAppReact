@@ -46,7 +46,8 @@
       "expo-font",
       "expo-sqlite",
       "@react-native-firebase/app",
-      "@react-native-firebase/messaging"
+      "@react-native-firebase/messaging",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

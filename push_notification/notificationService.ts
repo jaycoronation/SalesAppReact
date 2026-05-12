@@ -25,17 +25,52 @@ export enum NotificationContentType {
   CUSTOMER = 'customer',
   INVOICE = 'invoice',
   REPORT = 'report',
-  CHAT = 'chat',
-  ANNOUNCEMENT = 'announcement',
   HOME = 'home',
+  // ── Due-date alert types ──────────────────────────────────────────────────
+  INVOICE_DUE_MONTH = 'invoice_due_month',
+  INVOICE_DUE = 'invoice_due',
+  PAYMENT_DUE_MONTH = 'payment_due_month',
+  PAYMENT_DUE = 'payment_due',
 }
 
 // ─── Notification Payload Shape ────────────────────────────────────────────────
 export interface NotificationPayload {
   contentType: NotificationContentType
   contentId: string
-  screen?: string  // optional direct screen path override
-  extra?: string  // optional JSON string for extra data
+  screen?: string   // optional direct screen path override
+  extra?: string    // optional JSON string for extra data
+  created_at?: string // ISO/epoch string — used to compute due-date ranges
+}
+
+// ─── Date Range Helpers ────────────────────────────────────────────────────────
+
+/** Parse the notification's created_at into a JS Date (handles ISO strings & epoch ms) */
+function parseNotifDate(value: string | undefined): Date {
+  if (!value) return new Date()
+  const epoch = Number(value)
+  if (!isNaN(epoch)) return new Date(epoch * (epoch > 1e10 ? 1 : 1000)) // ms or s
+  const d = new Date(value)
+  return isNaN(d.getTime()) ? new Date() : d
+}
+
+/** Unix-second timestamps for the whole calendar month containing `date` */
+function monthTimestamps(date: Date): { due_from: number; due_to: number } {
+  const from = new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0)
+  const to = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999)
+  return {
+    due_from: Math.floor(from.getTime() / 1000),
+    due_to: Math.floor(to.getTime() / 1000),
+  }
+}
+
+/** Unix-second timestamps for the single day of `date` */
+function dayTimestamps(date: Date): { due_from: number; due_to: number } {
+  const from = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0)
+  const to = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999)
+  return {
+    due_from: Math.floor(from.getTime() / 1000),
+    due_to: Math.floor(to.getTime() / 1000),
+  }
 }
 
 // ─── Route Map ─────────────────────────────────────────────────────────────────
@@ -45,27 +80,35 @@ const ROUTE_MAP: Record<NotificationContentType, string> = {
   [NotificationContentType.CUSTOMER]: '/CustomerDetail',
   [NotificationContentType.INVOICE]: '/InvoiceDetail',
   [NotificationContentType.REPORT]: '/ReportDetail',
-  [NotificationContentType.CHAT]: '/ChatScreen',
-  [NotificationContentType.ANNOUNCEMENT]: '/AnnouncementDetail',
   [NotificationContentType.HOME]: '/dashboard/BottomNavigation',
+  // Due-date types handled in navigateTo switch — these satisfy the Record<> exhaustiveness check
+  [NotificationContentType.INVOICE_DUE_MONTH]: '/(main)/sales/SalesListScreen',
+  [NotificationContentType.INVOICE_DUE]: '/(main)/sales/SalesListScreen',
+  [NotificationContentType.PAYMENT_DUE_MONTH]: '/(main)/purchase/purchase',
+  [NotificationContentType.PAYMENT_DUE]: '/(main)/purchase/purchase',
 }
 
 // ─── Parse Helper ──────────────────────────────────────────────────────────────
 function parsePayload(
   data: Record<string, string> | undefined
 ): NotificationPayload | null {
-  if (!data?.contentType) return null
+  if (!data) return null
+  // Support both `contentType` (camelCase) and `content_type` (snake_case) from server
+  const rawType = data.contentType ?? data.content_type
+  if (!rawType) return null
   return {
-    contentType: data.contentType as NotificationContentType,
-    contentId: data.contentId ?? '',
+    contentType: rawType as NotificationContentType,
+    contentId: data.contentId ?? data.content_id ?? '',
     screen: data.screen,
     extra: data.extra,
+    created_at: data.created_at,
   }
 }
 
 // ─── Navigate Helper ──────────────────────────────────────────────────────────
 function navigateTo(router: Router, payload: NotificationPayload) {
   try {
+    // ── Direct screen override ──────────────────────────────────────────────
     if (payload.screen) {
       router.push({
         pathname: payload.screen as any,
@@ -74,6 +117,45 @@ function navigateTo(router: Router, payload: NotificationPayload) {
       return
     }
 
+    // ── Due-date content types (use created_at to build date range params) ──
+    switch (payload.contentType) {
+      case NotificationContentType.INVOICE_DUE_MONTH: {
+        const { due_from, due_to } = monthTimestamps(parseNotifDate(payload.created_at))
+        router.push({
+          pathname: '/(main)/sales/SalesListScreen',
+          params: { due_from, due_to },
+        })
+        return
+      }
+      case NotificationContentType.INVOICE_DUE: {
+        const { due_from, due_to } = dayTimestamps(parseNotifDate(payload.created_at))
+        router.push({
+          pathname: '/(main)/sales/SalesListScreen',
+          params: { due_from, due_to },
+        })
+        return
+      }
+      case NotificationContentType.PAYMENT_DUE_MONTH: {
+        const { due_from, due_to } = monthTimestamps(parseNotifDate(payload.created_at))
+        router.push({
+          pathname: '/(main)/purchase/purchase',
+          params: { due_from, due_to },
+        })
+        return
+      }
+      case NotificationContentType.PAYMENT_DUE: {
+        const { due_from, due_to } = dayTimestamps(parseNotifDate(payload.created_at))
+        router.push({
+          pathname: '/(main)/purchase/purchase',
+          params: { due_from, due_to },
+        })
+        return
+      }
+      default:
+        break
+    }
+
+    // ── Generic route map for all other content types ───────────────────────
     const route = ROUTE_MAP[payload.contentType]
 
     if (!route) {

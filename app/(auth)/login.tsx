@@ -135,7 +135,6 @@ export default function LoginScreen() {
       setIsLoading(true)
 
       const deviceToken = await SessionManager.getFCMToken();
-      console.log("deviceToken", deviceToken);
 
       const modelName = Device.modelName
 

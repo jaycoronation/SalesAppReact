@@ -3,13 +3,20 @@ import PartyDetail, {
   PurchaseBillListItem,
   SaleInvoiceListItem,
 } from '@/Database/models/Partydetails'
-import { loadPartyDetail, syncPartyDetail } from '@/Services/Partydetailsync'
+import { ApiEndPoints } from '@/network/ApiEndPoint'
+import { loadPartyDetail, syncPartyDetail, updateLocalDueDate } from '@/Services/Partydetailsync'
 import { Colors } from '@/utils/colors'
+import { SessionManager } from '@/utils/sessionManager'
 import { Ionicons } from '@expo/vector-icons'
+import DateTimePicker from '@react-native-community/datetimepicker'
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
+
 import React, { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +27,13 @@ import {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type ActiveTab = 'sales' | 'purchases'
+
+type DueDateDialog = {
+  visible: boolean
+  type: 'sale' | 'purchase'
+  id: string
+  currentDueDate: string
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -55,6 +69,188 @@ function getTypeColor(type: string) {
   }
 }
 
+// ─── API Helpers ──────────────────────────────────────────────────────────────
+
+
+async function getToken(): Promise<string> {
+  const token = await SessionManager.getToken();
+  return token ?? ''
+}
+
+async function apiUpdateSalesDueDate(saleId: string, dueDateUnix: number): Promise<void> {
+  const token = await getToken()
+  const body = new URLSearchParams()
+  body.append('sale_id', saleId)
+  body.append('due_date', String(dueDateUnix))
+
+  const res = await fetch(`${ApiEndPoints.BASE_URL}register/updateSalesDueDate`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: body.toString(),
+  })
+
+  if (!res.ok) throw new Error(`Server error: ${res.status}`)
+}
+
+async function apiUpdatePurchaseDueDate(purchaseId: string, dueDateUnix: number): Promise<void> {
+  const token = await getToken()
+  const body = new URLSearchParams()
+  body.append('purchase_id', purchaseId)
+  body.append('due_date', String(dueDateUnix))
+
+  const res = await fetch(`${ApiEndPoints.BASE_URL}register/updatePurchaseDueDate`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: body.toString(),
+  })
+
+  if (!res.ok) throw new Error(`Server error: ${res.status}`)
+}
+
+// ─── Update Due Date Modal ────────────────────────────────────────────────────
+
+function UpdateDueDateModal({
+  dialog,
+  partyId,
+  onClose,
+  onSuccess,
+}: {
+  dialog: DueDateDialog
+  partyId: string   // ← add this
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    // Try to parse the existing due_date (e.g. "30 Apr 2025" or "2025-04-30")
+    const parsed = new Date(dialog.currentDueDate)
+    return isNaN(parsed.getTime()) ? new Date() : parsed
+  })
+  const [showPicker, setShowPicker] = useState(Platform.OS === 'ios')
+  const [saving, setSaving] = useState(false)
+
+  const isSale = dialog.type === 'sale'
+  const accentColor = isSale ? '#059669' : '#D97706'
+  const label = isSale ? 'Sales Invoice' : 'Purchase Bill'
+
+  const handleConfirm = async () => {
+    setSaving(true)
+    try {
+      const unixSeconds = Math.floor(selectedDate.getTime() / 1000)
+      if (isSale) {
+        await apiUpdateSalesDueDate(dialog.id, unixSeconds)
+      } else {
+        await apiUpdatePurchaseDueDate(dialog.id, unixSeconds)
+      }
+
+      // ✅ Optimistically patch the local DB immediately — no full sync delay
+      await updateLocalDueDate(partyId, dialog.type, dialog.id, unixSeconds)
+
+      onSuccess()   // still triggers runSync in background to refresh everything else
+      onClose()
+    } catch (e: any) {
+      Alert.alert('Update Failed', e.message || 'Could not update due date. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const formattedDate = selectedDate.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+
+  return (
+    <Modal
+      visible={dialog.visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={ms.overlay}>
+        <View style={ms.sheet}>
+          {/* Header */}
+          <View style={ms.sheetHeader}>
+            <View style={[ms.sheetIconWrap, { backgroundColor: isSale ? '#ECFDF5' : '#FFF7ED' }]}>
+              <Ionicons name="calendar-outline" size={20} color={accentColor} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={ms.sheetTitle}>Update Due Date</Text>
+              <Text style={ms.sheetSubtitle}>{label}</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={ms.closeBtn}>
+              <Ionicons name="close" size={20} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Current info */}
+          <View style={ms.currentRow}>
+            <Text style={ms.currentLabel}>Current due date</Text>
+            <Text style={ms.currentValue}>{dialog.currentDueDate || '—'}</Text>
+          </View>
+
+          {/* Date picker trigger (Android) */}
+          {Platform.OS === 'android' && (
+            <TouchableOpacity
+              style={[ms.dateDisplayBtn, { borderColor: accentColor }]}
+              onPress={() => setShowPicker(true)}
+            >
+              <Ionicons name="calendar" size={16} color={accentColor} />
+              <Text style={[ms.dateDisplayText, { color: accentColor }]}>{formattedDate}</Text>
+              <Ionicons name="chevron-down" size={14} color={accentColor} />
+            </TouchableOpacity>
+          )}
+
+          {/* Date Picker */}
+          {(showPicker || Platform.OS === 'ios') && (
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(_, date) => {
+                setShowPicker(false)
+                if (date) setSelectedDate(date)
+              }}
+              style={ms.datePicker}
+            />
+          )}
+
+          {/* iOS: selected date label */}
+          {Platform.OS === 'ios' && (
+            <View style={ms.iosDateRow}>
+              <Text style={ms.iosDateLabel}>Selected:</Text>
+              <Text style={[ms.iosDateValue, { color: accentColor }]}>{formattedDate}</Text>
+            </View>
+          )}
+
+          {/* Footer actions */}
+          <View style={ms.actions}>
+            <TouchableOpacity style={ms.cancelBtn} onPress={onClose} disabled={saving}>
+              <Text style={ms.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[ms.confirmBtn, { backgroundColor: accentColor }, saving && ms.btnDisabled]}
+              onPress={handleConfirm}
+              disabled={saving}
+            >
+              {saving
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={ms.confirmText}>Update</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
 // ─── Summary Stat ─────────────────────────────────────────────────────────────
 
 function Stat({
@@ -77,7 +273,7 @@ function Stat({
 
 // ─── Sales Invoice Row ────────────────────────────────────────────────────────
 
-function SaleRow({ item }: { item: SaleInvoiceListItem }) {
+function SaleRow({ item, onEditDueDate }: { item: SaleInvoiceListItem; onEditDueDate: () => void }) {
   const st = getStatusStyle(item.payment_status, item.is_overdue)
   const hasOutstanding = parseFloat(item.outstanding) > 0
 
@@ -102,9 +298,18 @@ function SaleRow({ item }: { item: SaleInvoiceListItem }) {
             </View>
           )}
         </View>
-        <Text style={s.invoiceDates}>
-          {item.txn_date}  ·  Due: {item.due_date}
-        </Text>
+        <View style={s.dueDateRow}>
+          <Text style={s.invoiceDates}>
+            {item.txn_date}  ·  Due: {item.due_date}
+          </Text>
+          <TouchableOpacity
+            onPress={onEditDueDate}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={s.dueDateEditBtn}
+          >
+            <Ionicons name="calendar-outline" size={13} color="#059669" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Right */}
@@ -125,7 +330,7 @@ function SaleRow({ item }: { item: SaleInvoiceListItem }) {
 
 // ─── Purchase Bill Row ────────────────────────────────────────────────────────
 
-function PurchaseRow({ item }: { item: PurchaseBillListItem }) {
+function PurchaseRow({ item, onEditDueDate }: { item: PurchaseBillListItem; onEditDueDate: () => void }) {
   const st = getStatusStyle(item.payment_status, item.is_overdue)
   const hasOutstanding = parseFloat(item.outstanding) > 0
 
@@ -143,9 +348,18 @@ function PurchaseRow({ item }: { item: PurchaseBillListItem }) {
       {/* Left */}
       <View style={s.invoiceLeft}>
         <Text style={s.voucherNo}>{item.voucher_no}</Text>
-        <Text style={s.invoiceDates}>
-          {item.txn_date}  ·  Due: {item.due_date}
-        </Text>
+        <View style={s.dueDateRow}>
+          <Text style={s.invoiceDates}>
+            {item.txn_date}  ·  Due: {item.due_date}
+          </Text>
+          <TouchableOpacity
+            onPress={onEditDueDate}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={s.dueDateEditBtn}
+          >
+            <Ionicons name="calendar-outline" size={13} color="#D97706" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Right */}
@@ -238,6 +452,24 @@ export default function PartyDetailScreen() {
   const [syncing, setSyncing] = useState(false)
   const [activeTab, setActiveTab] = useState<ActiveTab>('sales')
   const [error, setError] = useState<string | null>(null)
+  const [dueDateDialog, setDueDateDialog] = useState<DueDateDialog>({
+    visible: false,
+    type: 'sale',
+    id: '',
+    currentDueDate: '',
+  })
+
+  const openDueDateDialog = useCallback((
+    type: 'sale' | 'purchase',
+    id: string,
+    currentDueDate: string,
+  ) => {
+    setDueDateDialog({ visible: true, type, id, currentDueDate })
+  }, [])
+
+  const closeDueDateDialog = useCallback(() => {
+    setDueDateDialog(prev => ({ ...prev, visible: false }))
+  }, [])
 
   const load = useCallback(async () => {
     const cached = await loadPartyDetail(partyId)
@@ -484,7 +716,12 @@ export default function PartyDetailScreen() {
           salesInvoices.length > 0
             ? salesInvoices.map((item, i) => (
               <View key={item.sale_id}>
-                <SaleRow item={item} />
+                <SaleRow
+                  item={item}
+                  onEditDueDate={() =>
+                    openDueDateDialog('sale', String(item.sale_id), item.due_date)
+                  }
+                />
                 {i < salesInvoices.length - 1 && <View style={s.divider} />}
               </View>
             ))
@@ -495,7 +732,12 @@ export default function PartyDetailScreen() {
           purchaseBills.length > 0
             ? purchaseBills.map((item, i) => (
               <View key={item.purchase_id}>
-                <PurchaseRow item={item} />
+                <PurchaseRow
+                  item={item}
+                  onEditDueDate={() =>
+                    openDueDateDialog('purchase', String(item.purchase_id), item.due_date)
+                  }
+                />
                 {i < purchaseBills.length - 1 && <View style={s.divider} />}
               </View>
             ))
@@ -504,6 +746,16 @@ export default function PartyDetailScreen() {
       </View>
 
       <View style={s.footer} />
+
+      {/* ── Update Due Date Modal ───────────────────────────────────────────── */}
+      {dueDateDialog.visible && (
+        <UpdateDueDateModal
+          dialog={dueDateDialog}
+          partyId={partyId}         // ← add this
+          onClose={closeDueDateDialog}
+          onSuccess={runSync}
+        />
+      )}
     </ScrollView>
   )
 }
@@ -617,4 +869,105 @@ const s = StyleSheet.create({
   badgeTextUnpaid: { fontSize: 10, fontWeight: '600', color: '#991B1B' },
   badgeTextPartial: { fontSize: 10, fontWeight: '600', color: '#92400E' },
   badgeTextOverdue: { fontSize: 10, fontWeight: '600', color: '#C2410C' },
+
+  // ── Due date inline edit ──────────────────────────────────────────────────
+  dueDateRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+  dueDateEditBtn: {
+    padding: 2,
+    borderRadius: 4,
+    backgroundColor: '#F3F4F6',
+  },
+})
+
+// ─── Modal Styles ─────────────────────────────────────────────────────────────
+const ms = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  sheetIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  sheetSubtitle: { fontSize: 12, color: '#6B7280', marginTop: 1 },
+  closeBtn: {
+    padding: 4,
+  },
+  currentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+  },
+  currentLabel: { fontSize: 12, color: '#6B7280' },
+  currentValue: { fontSize: 13, fontWeight: '600', color: '#374151' },
+  dateDisplayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  dateDisplayText: { flex: 1, fontSize: 15, fontWeight: '600' },
+  datePicker: { width: '100%' },
+  iosDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  iosDateLabel: { fontSize: 13, color: '#6B7280' },
+  iosDateValue: { fontSize: 14, fontWeight: '700' },
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+  },
+  cancelText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  confirmText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  btnDisabled: { opacity: 0.6 },
 })

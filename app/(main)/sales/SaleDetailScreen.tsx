@@ -180,7 +180,6 @@ export default function SaleDetailScreen() {
     let cancelled = false
 
     const init = async () => {
-      console.log("saleId ====", saleId);
       const cached = await loadSaleDetail(saleId)
 
       if (cancelled) return

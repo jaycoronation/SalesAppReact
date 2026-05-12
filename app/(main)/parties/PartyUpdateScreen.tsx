@@ -156,9 +156,6 @@ export default function PartyUpdateScreen() {
         is_active: form.is_active,
       })
 
-      console.log('Token:', token)
-      console.log('Body:', body.toString())
-
       const response = await fetch(`${ApiEndPoints.BASE_URL}party/save`, {
         method: 'POST',
         headers: {
@@ -171,7 +168,6 @@ export default function PartyUpdateScreen() {
       // response.json() can silently hang in RN if body is empty or non-JSON
       // Use text() + JSON.parse() instead — always reliable
       const rawText = await response.text()
-      console.log('Raw response:', rawText)
 
       let json: any = {}
       try {

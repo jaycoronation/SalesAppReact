@@ -32,7 +32,6 @@ function parseNotifDate(createdAt: string): Date {
 
 // Full month: 1st @ 00:00:00 → last day @ 23:59:59
 function monthTimestamps(date: Date) {
-    console.log("date", date);
     const y = date.getFullYear()
     const m = date.getMonth()           // 0-indexed
     const from = new Date(y, m, 1, 0, 0, 0)
@@ -45,7 +44,6 @@ function monthTimestamps(date: Date) {
 
 // Single day: start of day → end of day
 function dayTimestamps(date: Date) {
-    console.log("date", date);
     const from = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0)
     const to = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59)
     return {
@@ -200,11 +198,8 @@ export default function NotificationScreen() {
                 }
             );
 
-            console.log("URL", response.url);
-
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const json = await response.json();
-            console.log("Response", json);
             if (json.success === 1) {
                 setNotifications(json.data);
             } else {

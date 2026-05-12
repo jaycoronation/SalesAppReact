@@ -122,7 +122,6 @@ export default function EditProfileScreen() {
   const handleSelect = (item: any) => {
     const itemId = resolveId(item);
     const itemName = resolveName(item);
-    console.log('Selected:', { type: pickerType, id: itemId, name: itemName });
 
     if (pickerType === 'country') {
       setForm({ ...form, country_id: itemId, state_id: '', city_id: '' });
@@ -187,8 +186,6 @@ export default function EditProfileScreen() {
 
       const res = await updateProfileAPI(formData);
 
-      console.log('Update profile response:', res);
-      console.log('Update profile response:', res.data.message);
       if (res.success && res.data.success === 1) {
         AppUtils.showToast(res.data.message);
         router.back();

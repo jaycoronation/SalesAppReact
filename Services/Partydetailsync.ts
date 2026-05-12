@@ -1,9 +1,11 @@
 import { database } from '@/Database'
+import type { PurchaseBillListItem, SaleInvoiceListItem } from '@/Database/models/Partydetails'
 import PartyDetail from '@/Database/models/Partydetails'
 import { ApiEndPoints } from "@/network/ApiEndPoint"
 import { SessionManager } from '@/utils/sessionManager'
 import { Q } from '@nozbe/watermelondb'
 import NetInfo from '@react-native-community/netinfo'
+
 
 
 // ─── API Types ────────────────────────────────────────────────────────────────
@@ -169,4 +171,51 @@ export async function loadPartyDetail(partyId: string): Promise<PartyDetail | nu
         .fetch()
 
     return records.length > 0 ? records[0] : null
-}   
+}
+
+// ─── Local Due Date Patch ─────────────────────────────────────────────────────
+
+/**
+ * Immediately patches the due_date of a single sale invoice or purchase bill
+ * in the local WatermelonDB JSON fields, so the UI reflects the change
+ * without waiting for a full sync round-trip.
+ */
+export async function updateLocalDueDate(
+    partyId: string,
+    type: 'sale' | 'purchase',
+    itemId: string,
+    newDueDateUnix: number,
+): Promise<void> {
+    const collection = getCollection()
+    if (!collection) return
+
+    const records = await collection.query(Q.where('party_id', partyId)).fetch()
+    if (records.length === 0) return
+
+    const record = records[0]
+
+    // Format the unix timestamp back to a readable date string (same format API returns)
+    const newDateStr = new Date(newDueDateUnix * 1000).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    })
+
+    await database.write(async () => {
+        await record.update((r) => {
+            if (type === 'sale') {
+                const invoices: SaleInvoiceListItem[] = JSON.parse(r.salesInvoicesJson || '[]')
+                const updated = invoices.map((inv) =>
+                    inv.sale_id === itemId ? { ...inv, due_date: newDateStr } : inv
+                )
+                r.salesInvoicesJson = JSON.stringify(updated)
+            } else {
+                const bills: PurchaseBillListItem[] = JSON.parse(r.purchaseBillsJson || '[]')
+                const updated = bills.map((bill) =>
+                    bill.purchase_id === itemId ? { ...bill, due_date: newDateStr } : bill
+                )
+                r.purchaseBillsJson = JSON.stringify(updated)
+            }
+        })
+    })
+}

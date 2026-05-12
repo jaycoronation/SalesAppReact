@@ -37,6 +37,7 @@ export interface ProfitLoss {
     gross_sales: string
     gross_purchase: string
     net: string
+    net_pl?: string
     is_profit: string
 }
 

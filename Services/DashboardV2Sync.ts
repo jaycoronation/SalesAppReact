@@ -82,7 +82,16 @@ export async function syncDashboardV2(month: number, year: number): Promise<void
                 record.recentInvoicesJson = JSON.stringify(d.recent_invoices ?? [])
 
                 // P&L and stock
-                record.profitLossJson = JSON.stringify(d.profit_loss ?? {})
+                const rawPl = d.profit_loss || {}
+                const plSummary = rawPl.summary || rawPl
+                record.profitLossJson = JSON.stringify({
+                    gross_sales: plSummary.total_sales || plSummary.gross_sales || '0',
+                    gross_purchase: plSummary.total_purchase || plSummary.gross_purchase || '0',
+                    net: plSummary.net_pl || plSummary.net || '0',
+                    net_pl: plSummary.net_pl || plSummary.net || '0',
+                    is_profit: plSummary.is_profit || 'No'
+                })
+
                 record.stockOverviewJson = JSON.stringify(d.stock_overview ?? {})
                 record.stockGradeOverviewJson = JSON.stringify(d.stock_grade_overview ?? [])
 

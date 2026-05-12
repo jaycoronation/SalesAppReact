@@ -200,3 +200,4 @@ export async function loadPurchaseDetail(purchaseId: string): Promise<PurchaseDe
 
     return records.length > 0 ? records[0] : null
 }
+

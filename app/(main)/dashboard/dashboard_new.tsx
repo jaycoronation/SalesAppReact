@@ -989,7 +989,7 @@ export default function DashboardScreen() {
           <View style={s.netBlock}>
             <Text style={s.netLabel}>{pl?.is_profit === 'Yes' ? 'Net Profit' : 'Net Loss'}</Text>
             <Text style={[s.netValue, pl?.is_profit === 'Yes' ? s.green : s.red]}>
-              {fmt(pl?.net)}
+              {fmt(pl?.net_pl || pl?.net)}
             </Text>
           </View>
         </View>
