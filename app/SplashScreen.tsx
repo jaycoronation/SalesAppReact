@@ -1,6 +1,5 @@
 // src/screens/SplashScreen.tsx
-import { Colors } from '@/utils/colors';
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import {
     Animated,
     Dimensions,
@@ -9,6 +8,7 @@ import {
     StatusBar,
     StyleSheet
 } from 'react-native';
+import { Colors } from '../utils/colors';
 
 const { width } = Dimensions.get('window');
 

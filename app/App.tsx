@@ -1,6 +1,6 @@
 // App.tsx
 import React, { useState } from 'react';
-import AppNavigator from "./(main)/dashboard/BottomNavigation";
+import AppNavigator from "./(main)/dashboard/_layout";
 import SplashScreen from './SplashScreen';
 
 

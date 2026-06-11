@@ -2,27 +2,9 @@ import { FinancialYearPicker } from '@/components/FinancialYearPicker'
 import { MonthYearPicker } from '@/components/MonthYearPicker'
 import NotificationBell from '@/components/NotificationBell'
 import { ShimmerBox } from '@/components/Shimmer'
-import { AgingBucket, AgingData, AgingSection } from '@/Database/models/dashboardoverview'
-import PurchaseRegisterEntry from '@/Database/models/Purchaseregisterentry'
-import { loadPayablesAging, syncDashboardV2 } from '@/Services/DashboardV2Sync'
-import {
-    BtwnDaysFilter,
-    InvoiceCounts,
-    loadAllPurchaseRegister,
-    loadPurchaseInvoiceCounts,
-    Section,
-    syncAllPurchaseRegister,
-} from '@/Services/Purchaseregistersync'
-import { AppUtils } from '@/utils/AppUtils'
-import { Colors } from '@/utils/colors'
-import {
-    getCurrentFY,
-    MONTH_SHORT,
-} from '@/utils/fiscalYear'
-import { SessionManager } from '@/utils/sessionManager'
 import { Ionicons } from '@expo/vector-icons'
 import { router, Stack } from 'expo-router'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
     ActivityIndicator,
     DeviceEventEmitter,
@@ -35,6 +17,24 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native'
+import { AgingBucket, AgingData, AgingSection } from '../../../Database/models/dashboardoverview'
+import PurchaseRegisterEntry from '../../../Database/models/Purchaseregisterentry'
+import { loadPayablesAging, syncDashboardV2 } from '../../../Services/DashboardV2Sync'
+import {
+    BtwnDaysFilter,
+    InvoiceCounts,
+    loadAllPurchaseRegister,
+    loadPurchaseInvoiceCounts,
+    Section,
+    syncAllPurchaseRegister,
+} from '../../../Services/Purchaseregistersync'
+import { AppUtils } from '../../../utils/AppUtils'
+import { Colors } from '../../../utils/colors'
+import {
+    getCurrentFY,
+    MONTH_SHORT,
+} from '../../../utils/fiscalYear'
+import { SessionManager } from '../../../utils/sessionManager'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

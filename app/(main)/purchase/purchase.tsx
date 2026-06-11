@@ -1,11 +1,7 @@
 import { ShimmerBox } from '@/components/Shimmer'
-import { database } from '@/Database'
-import PurchaseEntry from '@/Database/models/PurchaseEntry'
-import { syncPurchases } from '@/Services/Purchasesync'
-import { Colors } from '@/utils/colors'
 import { Q } from '@nozbe/watermelondb'
 import { Stack, router, useLocalSearchParams } from 'expo-router'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     ActivityIndicator,
     FlatList,
@@ -16,6 +12,10 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native'
+import { database } from '../../../Database'
+import PurchaseEntry from '../../../Database/models/PurchaseEntry'
+import { syncPurchases } from '../../../Services/Purchasesync'
+import { Colors } from '../../../utils/colors'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 10

@@ -1,5 +1,6 @@
+// const BASE_URL = process.env.EXPO_BASE_URL;
 const BASE_URL = "https://sps-velocity.onrender.com/api/";
-// const BASE_URL = "http://192.168.29.245:5000/api/";
+// const BASE_URL = "http://192.168.29.245:4000/api/";
 
 export const ApiEndPoints = {
   BASE_URL,

@@ -1,27 +1,9 @@
 import { FinancialYearPicker } from '@/components/FinancialYearPicker'
 import { MonthYearPicker } from '@/components/MonthYearPicker'
 import NotificationBell from '@/components/NotificationBell'
-import { AgingData, AgingSection } from '@/Database/models/dashboardoverview'
-import SalesRegisterEntry from '@/Database/models/SalesRegisterEntry'
-import { loadReceivablesAging, syncDashboardV2 } from '@/Services/DashboardV2Sync'
-import {
-    BtwnDaysFilter,
-    InvoiceCounts,
-    loadAllSalesRegister,
-    loadSalesInvoiceCounts,
-    Section,
-    syncAllSalesRegister,
-} from '@/Services/SalesRegisterSync'
-import { AppUtils } from '@/utils/AppUtils'
-import { Colors } from '@/utils/colors'
-import {
-    getCurrentFY,
-    MONTH_SHORT,
-} from '@/utils/fiscalYear'
-import { SessionManager } from '@/utils/sessionManager'
 import { Ionicons } from '@expo/vector-icons'
 import { router, Stack } from 'expo-router'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
     ActivityIndicator,
     DeviceEventEmitter,
@@ -34,6 +16,24 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native'
+import { AgingData, AgingSection } from '../../../Database/models/dashboardoverview'
+import SalesRegisterEntry from '../../../Database/models/SalesRegisterEntry'
+import { loadReceivablesAging, syncDashboardV2 } from '../../../Services/DashboardV2Sync'
+import {
+    BtwnDaysFilter,
+    InvoiceCounts,
+    loadAllSalesRegister,
+    loadSalesInvoiceCounts,
+    Section,
+    syncAllSalesRegister,
+} from '../../../Services/SalesRegisterSync'
+import { AppUtils } from '../../../utils/AppUtils'
+import { Colors } from '../../../utils/colors'
+import {
+    getCurrentFY,
+    MONTH_SHORT,
+} from '../../../utils/fiscalYear'
+import { SessionManager } from '../../../utils/sessionManager'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

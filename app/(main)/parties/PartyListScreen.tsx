@@ -1,11 +1,8 @@
 import NotificationBell from '@/components/NotificationBell'
 import { ShimmerBox } from '@/components/Shimmer'
-import Party from '@/Database/models/Party'
-import { loadParties, syncParties } from '@/Services/Partysync'
-import { Colors } from '@/utils/colors'
 import { Ionicons } from '@expo/vector-icons'
 import { router, Stack } from 'expo-router'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
@@ -19,6 +16,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import Party from '../../../Database/models/Party'
+import { loadParties, syncParties } from '../../../Services/Partysync'
+import { Colors } from '../../../utils/colors'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -692,7 +692,7 @@ const cardStyles = StyleSheet.create({
 // ─── Filter Sheet Styles ──────────────────────────────────────────────────────
 const fs = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   sheet: {

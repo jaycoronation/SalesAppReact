@@ -3,7 +3,8 @@ import { AppUtils, isValidEmail } from "@/utils/AppUtils";
 import { Colors } from "@/utils/colors";
 import { Fonts } from "@/utils/fonts";
 import { SessionManager } from "@/utils/sessionManager";
-import { AuthorizationStatus, getMessaging, getToken, requestPermission } from '@react-native-firebase/messaging';
+import messaging, { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
+
 import * as Device from 'expo-device';
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -133,7 +134,7 @@ export default function LoginScreen() {
   const callAPI = async () => {
     try {
       setIsLoading(true)
-
+      await getFirebaseToken();
       const deviceToken = await SessionManager.getFCMToken();
 
       const modelName = Device.modelName
@@ -141,7 +142,7 @@ export default function LoginScreen() {
       const res = await loginAPI(username, password, deviceToken || '', modelName || '', Platform.OS == 'ios' ? 'ios' : 'android')
       if (res.success && res.data.success === 1) {
         await SessionManager.setSession(res.data)
-        router.replace('/(main)/dashboard/BottomNavigation')
+        router.replace('/(main)/dashboard')
       } else {
         AppUtils.showToast(res.data?.message || 'Login failed')
       }
@@ -159,13 +160,14 @@ export default function LoginScreen() {
   const getFirebaseToken = async () => {
     try {
       // iOS requires explicit permission; Android grants it by default
-      const authStatus = await requestPermission(getMessaging())
+      const authStatus = await messaging().requestPermission();
       const isGranted =
-        authStatus === AuthorizationStatus.AUTHORIZED ||
-        authStatus === AuthorizationStatus.PROVISIONAL
+        authStatus === FirebaseMessagingTypes.AuthorizationStatus.AUTHORIZED ||
+        authStatus === FirebaseMessagingTypes.AuthorizationStatus.PROVISIONAL;
 
       if (isGranted) {
-        const fcmToken = await getToken(getMessaging())
+        const fcmToken = await messaging().getToken();
+
         if (fcmToken) {
           await SessionManager.setFCMToken(fcmToken)
         }

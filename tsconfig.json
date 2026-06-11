@@ -5,6 +5,7 @@
     "jsx": "react-native",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    "moduleResolution": "bundler",
     "paths": {
       "@/*": [
         "./*"

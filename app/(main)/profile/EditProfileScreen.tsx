@@ -1,11 +1,7 @@
-import { fetchCitiesAPI, fetchCountriesAPI, fetchStatesAPI, updateProfileAPI } from '@/network/authService';
-import { AppUtils } from '@/utils/AppUtils';
-import { Colors } from '@/utils/colors';
-import { SessionManager } from '@/utils/sessionManager';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,6 +17,10 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { fetchCitiesAPI, fetchCountriesAPI, fetchStatesAPI, updateProfileAPI } from '../../../network/authService';
+import { AppUtils } from '../../../utils/AppUtils';
+import { Colors } from '../../../utils/colors';
+import { SessionManager } from '../../../utils/sessionManager';
 
 interface LocationItem {
   id: string | number;

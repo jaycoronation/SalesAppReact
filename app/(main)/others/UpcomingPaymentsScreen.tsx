@@ -1,10 +1,6 @@
 import { ShimmerBox } from '@/components/Shimmer'
-import UpcomingPayment from '@/Database/models/Upcomingpayment'
-import { loadUpcomingPayments, syncUpcomingPayments } from '@/Services/DashboardV2Sync'
-import { AppUtils } from '@/utils/AppUtils'
-import { Colors } from '@/utils/colors'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
-import React, { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
@@ -14,6 +10,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import UpcomingPayment from '../../../Database/models/Upcomingpayment'
+import { loadUpcomingPayments, syncUpcomingPayments } from '../../../Services/DashboardV2Sync'
+import { AppUtils } from '../../../utils/AppUtils'
+import { Colors } from '../../../utils/colors'
 
 
 // ─── Constants ────────────────────────────────────────────────────────────────

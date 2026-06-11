@@ -1,18 +1,9 @@
 import { FinancialYearPicker } from '@/components/FinancialYearPicker';
 import { MonthYearPicker } from '@/components/MonthYearPicker';
 import { ShimmerBox } from '@/components/Shimmer';
-import { RecentInvoiceItem } from '@/Database/models/dashboardoverview';
-import { loadDashboardV2 } from '@/Services/DashboardV2Sync';
-import { syncRecentInvoices } from '@/Services/RecentInvoicesSync';
-import { Colors } from '@/utils/colors';
-import {
-  getCurrentFY,
-  MONTH_SHORT,
-} from '@/utils/fiscalYear';
-import { SessionManager } from '@/utils/sessionManager';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   DeviceEventEmitter,
   FlatList,
@@ -23,6 +14,15 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { RecentInvoiceItem } from '../../../Database/models/dashboardoverview';
+import { loadDashboardV2 } from '../../../Services/DashboardV2Sync';
+import { syncRecentInvoices } from '../../../Services/RecentInvoicesSync';
+import { Colors } from '../../../utils/colors';
+import {
+  getCurrentFY,
+  MONTH_SHORT,
+} from '../../../utils/fiscalYear';
+import { SessionManager } from '../../../utils/sessionManager';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

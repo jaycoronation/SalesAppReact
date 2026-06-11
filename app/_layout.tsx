@@ -1,38 +1,40 @@
 // app/_layout.tsx
-import { Colors } from '@/utils/colors';
-import { SessionManager } from '@/utils/sessionManager';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts } from "expo-font";
 import { Redirect, Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MD3LightTheme, PaperProvider } from "react-native-paper";
+import app from '../firebaseConfig';
+import { Colors } from '../utils/colors';
+import { SessionManager } from '../utils/sessionManager';
 
-import { initFirebase } from '@/firebaseConfig';
-import {
-  handleQuitStateNotification,
-  listenBackgroundNotificationTap,
-  listenForegroundNotifications,
-  listenNotificationTap,
-  listenTokenRefresh,
-  registerBackgroundHandler,
-  registerForPushNotifications,
-  setNotificationHandler,
-} from '@/push_notification/notificationService';
-import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { NotificationProvider } from '@/utils/NotificationContext';
+import {
+  setNotificationHandler
+} from '../push_notification/notificationService';
+import { NotificationProvider } from '../utils/NotificationContext';
 
-// 🔥 Initialize Firebase BEFORE anything else
-initFirebase();
-
-setNotificationHandler();
-
-// Register background handler (must be module-level)
-try {
-  registerBackgroundHandler();
-} catch (e) {
-  console.warn('[Layout] Background handler registration failed:', e);
+// Polyfill DOMException for Hermes
+if (typeof global.DOMException === 'undefined') {
+  global.DOMException = class DOMException extends Error {
+    constructor(message: string = '', name: string = 'Error') {
+      super(message);
+      this.name = name;
+    }
+  } as any;
 }
+
+// // 🔥 Initialize Firebase BEFORE anything else
+// initFirebase();
+
+// setNotificationHandler();
+
+// // Register background handler (must be module-level)
+// try {
+//   registerBackgroundHandler();
+// } catch (e) {
+//   console.warn('[Layout] Background handler registration failed:', e);
+// }
 
 export default function RootLayout() {
 
@@ -55,24 +57,30 @@ export default function RootLayout() {
     "Rubik-BlackItalic": require("../assets/fonts/Rubik-BlackItalic.ttf"),
   });
 
-  const router = useRouter()
-
   useEffect(() => {
-    registerForPushNotifications()
-    handleQuitStateNotification(router)   // app opened from killed state
+    // ✅ Move everything here — runs after native bridge is ready
+    setNotificationHandler();
 
-    const unsub1 = listenForegroundNotifications(router)
-    const unsub2 = listenNotificationTap(router)
-    const unsub3 = listenBackgroundNotificationTap(router)
-    const unsub4 = listenTokenRefresh()
+    console.log('Firebase initialized:', app.name);
 
-    return () => {
-      unsub1()
-      unsub2()
-      unsub3()
-      unsub4()
-    }
-  }, [])
+    // try {
+    //   registerBackgroundHandler();
+    // } catch (e) {
+    //   console.warn('[Layout] Background handler registration failed:', e);
+    // }
+
+    // registerForPushNotifications();
+    // handleQuitStateNotification();
+
+    // const unsub1 = listenForegroundNotifications();
+    // const unsub2 = listenNotificationTap();
+    // const unsub3 = listenBackgroundNotificationTap();
+    // const unsub4 = listenTokenRefresh();
+
+    // return () => {
+    //   unsub1(); unsub2(); unsub3(); unsub4();
+    // };
+  }, []);
 
   if (!fontsLoaded) return null;
 

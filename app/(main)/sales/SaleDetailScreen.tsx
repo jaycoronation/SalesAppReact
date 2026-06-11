@@ -1,7 +1,4 @@
 import { ShimmerBox } from '@/components/Shimmer'
-import SaleDetail, { LineItem } from '@/Database/models/SalesDetail'
-import { loadSaleDetail, syncSaleDetail } from '@/Services/Saledetailsync'
-import { Colors } from '@/utils/colors'
 import { Ionicons } from '@expo/vector-icons'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import React, { useEffect, useState } from 'react'
@@ -13,6 +10,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import SaleDetail, { LineItem } from '../../../Database/models/SalesDetail'
+import { loadSaleDetail, syncSaleDetail } from '../../../Services/Saledetailsync'
+import { Colors } from '../../../utils/colors'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

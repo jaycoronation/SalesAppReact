@@ -2,31 +2,6 @@ import { FinancialYearPicker } from '@/components/FinancialYearPicker';
 import { MonthYearPicker } from '@/components/MonthYearPicker';
 import NotificationBell from '@/components/NotificationBell';
 import { ShimmerBox } from '@/components/Shimmer';
-import DashboardOverviewV2, {
-  AgingBucket,
-  ConversionBlock,
-  ConversionGenerate,
-  RecentInvoiceItem,
-  StockGradeItem,
-  StockOverview,
-  UpcomingPaymentItem,
-} from '@/Database/models/dashboardoverview';
-import {
-  loadDashboardV2,
-  observeDashboardV2,
-  syncDashboardV2,
-  syncStockGradeSummary,
-  syncUpcomingPayments,
-  type GradeSummaryEntry,
-  type StockGradeFilter,
-} from '@/Services/DashboardV2Sync';
-import { Colors } from '@/utils/colors';
-import {
-  getCurrentFY,
-  getFiscalYear,
-  MONTH_SHORT,
-} from '@/utils/fiscalYear';
-import { SessionManager } from '@/utils/sessionManager';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -42,6 +17,31 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import DashboardOverviewV2, {
+  AgingBucket,
+  ConversionBlock,
+  ConversionGenerate,
+  RecentInvoiceItem,
+  StockGradeItem,
+  StockOverview,
+  UpcomingPaymentItem,
+} from '../../../Database/models/dashboardoverview';
+import {
+  loadDashboardV2,
+  observeDashboardV2,
+  syncDashboardV2,
+  syncStockGradeSummary,
+  syncUpcomingPayments,
+  type GradeSummaryEntry,
+  type StockGradeFilter,
+} from '../../../Services/DashboardV2Sync';
+import { Colors } from '../../../utils/colors';
+import {
+  getCurrentFY,
+  getFiscalYear,
+  MONTH_SHORT,
+} from '../../../utils/fiscalYear';
+import { SessionManager } from '../../../utils/sessionManager';
 
 
 // ─── Constants ────────────────────────────────────────────────────────────────

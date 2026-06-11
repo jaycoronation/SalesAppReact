@@ -1,10 +1,8 @@
-import { userProfileAPI } from '@/network/authService';
-import { Colors } from '@/utils/colors';
-import { SessionManager } from '@/utils/sessionManager';
+import NotificationBell from '@/components/NotificationBell';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -16,7 +14,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import NotificationBell from '@/components/NotificationBell';
+import { userProfileAPI } from '../../../network/authService';
+import { Colors } from '../../../utils/colors';
+import { SessionManager } from '../../../utils/sessionManager';
 
 interface UserProfile {
   user_id: string;

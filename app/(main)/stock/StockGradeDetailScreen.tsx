@@ -1,11 +1,6 @@
-import {
-  loadStockGradeDetail,
-  syncStockGradeDetail,
-} from '@/Services/StockGradeDetailSync'
-import { Colors } from '@/utils/colors'
 import { Ionicons } from '@expo/vector-icons'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
@@ -15,6 +10,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import {
+  loadStockGradeDetail,
+  syncStockGradeDetail,
+} from '../../../Services/StockGradeDetailSync'
+import { Colors } from '../../../utils/colors'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

@@ -1,9 +1,6 @@
-import { forgotPasswordAPI } from '@/network/authService';
-import { AppUtils, isValidEmail } from '@/utils/AppUtils';
-import { Fonts } from '@/utils/fonts';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Animated,
   KeyboardAvoidingView,
@@ -14,6 +11,9 @@ import {
   View,
 } from 'react-native';
 import { TextInput } from 'react-native-paper';
+import { forgotPasswordAPI } from '../../network/authService';
+import { AppUtils, isValidEmail } from '../../utils/AppUtils';
+import { Fonts } from '../../utils/fonts';
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const T = {

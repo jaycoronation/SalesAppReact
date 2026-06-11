@@ -1,19 +1,10 @@
 import { FinancialYearPicker } from '@/components/FinancialYearPicker'
 import { MonthYearPicker } from '@/components/MonthYearPicker'
 import { ShimmerBox } from '@/components/Shimmer'
-import { database } from '@/Database'
-import SaleEntry from '@/Database/models/SalesEntry'
-import { syncSales } from '@/Services/salessync'
-import { Colors } from '@/utils/colors'
-import {
-  getCurrentFY,
-  MONTH_SHORT,
-} from '@/utils/fiscalYear'
-import { SessionManager } from '@/utils/sessionManager'
 import { Ionicons } from '@expo/vector-icons'
 import { Q } from '@nozbe/watermelondb'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   DeviceEventEmitter,
@@ -25,6 +16,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { database } from '../../../Database'
+import SaleEntry from '../../../Database/models/SalesEntry'
+import { syncSales } from '../../../Services/salessync'
+import { Colors } from '../../../utils/colors'
+import {
+  getCurrentFY,
+  MONTH_SHORT,
+} from '../../../utils/fiscalYear'
+import { SessionManager } from '../../../utils/sessionManager'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

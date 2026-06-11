@@ -113,6 +113,335 @@ async function apiUpdatePurchaseDueDate(purchaseId: string, dueDateUnix: number)
   if (!res.ok) throw new Error(`Server error: ${res.status}`)
 }
 
+async function apiAdjustPayment(params: {
+  party_id: string;
+  sale_id: string;
+  purchase_id: string;
+  transfer_purchase_id?: string;
+}): Promise<void> {
+  try {
+    const token = await getToken();
+
+    const body = new URLSearchParams();
+    body.append('party_id', params.party_id);
+    body.append('sale_id', params.sale_id);
+    body.append('purchase_id', params.purchase_id);
+
+    if (params.transfer_purchase_id) {
+      body.append('transfer_purchase_id', params.transfer_purchase_id);
+    }
+
+    const url = `${ApiEndPoints.BASE_URL}register/adjustPayments`;
+
+    console.log('========== ADJUST PAYMENT API ==========');
+    console.log('URL:', url);
+    console.log('METHOD:', 'POST');
+    console.log('TOKEN:', token);
+    console.log('REQUEST PARAMS:', params);
+    console.log('REQUEST BODY:', body.toString());
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body.toString(),
+    });
+
+    console.log('RESPONSE STATUS:', res.status);
+    console.log('RESPONSE OK:', res.ok);
+
+    const responseText = await res.text();
+
+    console.log('RAW RESPONSE:', responseText);
+
+    let json;
+    try {
+      json = JSON.parse(responseText);
+      console.log('JSON RESPONSE:', json);
+    } catch (e) {
+      console.error('Failed to parse response JSON:', e);
+      throw new Error('Invalid JSON response from server');
+    }
+
+    if (!res.ok || !json.success) {
+      console.error('API ERROR:', json.message);
+      throw new Error(json.message || `Server error: ${res.status}`);
+    }
+
+    console.log('ADJUST PAYMENT SUCCESS');
+    console.log('=======================================');
+  } catch (error) {
+    console.error('ADJUST PAYMENT EXCEPTION:', error);
+    throw error;
+  }
+}
+
+// ─── Adjust Payment Modal ─────────────────────────────────────────────────────
+
+function AdjustPaymentModal({
+  visible,
+  partyId,
+  salesInvoices,
+  purchaseBills,
+  onClose,
+  onSuccess,
+}: {
+  visible: boolean
+  partyId: string
+  salesInvoices: SaleInvoiceListItem[]
+  purchaseBills: PurchaseBillListItem[]
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const [selectedSaleId, setSelectedSaleId] = useState('')
+  const [selectedPurchaseId, setSelectedPurchaseId] = useState('')
+  const [transferEnabled, setTransferEnabled] = useState(false)
+  const [transferPurchaseId, setTransferPurchaseId] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  // Only show sales that are not fully paid (have outstanding > 0 OR unpaid)
+  const eligibleSales = salesInvoices.filter(
+    inv => inv.payment_status !== 'paid' || parseFloat(inv.outstanding) > 0,
+  )
+
+  const selectedPurchase = purchaseBills.find(b => String(b.purchase_id) === selectedPurchaseId)
+  const isSelectedPurchasePartial = selectedPurchase?.payment_status === 'partial'
+
+  // Transfer targets: all purchase bills except the selected one
+  const transferablePurchases = purchaseBills.filter(
+    b => String(b.purchase_id) !== selectedPurchaseId,
+  )
+
+  const handlePurchaseChange = (value: string) => {
+    setSelectedPurchaseId(value)
+    setTransferEnabled(false)
+    setTransferPurchaseId('')
+  }
+
+  const handleClose = () => {
+    setSelectedSaleId('')
+    setSelectedPurchaseId('')
+    setTransferEnabled(false)
+    setTransferPurchaseId('')
+    setError('')
+    onClose()
+  }
+
+  const handleSubmit = async () => {
+    if (!selectedSaleId) { setError('Please select a sales invoice.'); return }
+    if (!selectedPurchaseId) { setError('Please select a purchase bill.'); return }
+    if (transferEnabled && !transferPurchaseId) {
+      setError('Please select a bill to transfer remaining payment to.')
+      return
+    }
+    setError('')
+    setSubmitting(true)
+    try {
+      await apiAdjustPayment({
+        party_id: partyId,
+        sale_id: selectedSaleId,
+        purchase_id: selectedPurchaseId,
+        transfer_purchase_id: transferEnabled ? transferPurchaseId : undefined,
+      })
+      handleClose()
+      onSuccess()
+    } catch (e: any) {
+      setError(e.message || 'Adjustment failed. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const formatCurrency = (val: string | number) => {
+    const n = typeof val === 'string' ? parseFloat(val) : val
+    if (!n || isNaN(n)) return '₹0'
+    return `₹${n.toLocaleString('en-IN')}`
+  }
+
+  const statusColor = (status: string) => {
+    switch (status) {
+      case 'partial': return '#D97706'
+      case 'paid': return '#059669'
+      default: return Colors.brandColor
+    }
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <View style={ap.overlay}>
+        <View style={ap.sheet}>
+          {/* Header */}
+          <View style={ap.header}>
+            <View style={ap.headerIconWrap}>
+              <Ionicons name="swap-horizontal" size={20} color={Colors.brandColor} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={ap.headerTitle}>Adjust Payment</Text>
+              <Text style={ap.headerSub}>Link a sale invoice to a purchase bill</Text>
+            </View>
+            <TouchableOpacity onPress={handleClose} style={ap.closeBtn}>
+              <Ionicons name="close" size={20} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={ap.body}>
+            {/* Sales Invoice */}
+            <View style={ap.fieldGroup}>
+              <Text style={ap.fieldLabel}>Sales Invoice</Text>
+              <View style={ap.pickerWrap}>
+                <Ionicons name="document-text-outline" size={16} color="#9CA3AF" style={ap.pickerIcon} />
+                <View style={{ flex: 1 }}>
+                  {eligibleSales.length === 0 ? (
+                    <Text style={ap.emptyNote}>No unpaid / partial sales invoices</Text>
+                  ) : (
+                    eligibleSales.map(inv => (
+                      <TouchableOpacity
+                        key={inv.sale_id}
+                        style={[ap.optionRow, String(inv.sale_id) === selectedSaleId && ap.optionRowSelected]}
+                        onPress={() => setSelectedSaleId(String(inv.sale_id))}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={ap.optionMain}>{inv.voucher_no}</Text>
+                          <Text style={ap.optionSub}>
+                            {formatCurrency(inv.gross_total)}  ·  Due: {formatCurrency(inv.outstanding)}
+                          </Text>
+                        </View>
+                        {String(inv.sale_id) === selectedSaleId && (
+                          <Ionicons name="checkmark-circle" size={18} color={Colors.brandColor} />
+                        )}
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {/* Purchase Bill */}
+            <View style={ap.fieldGroup}>
+              <Text style={ap.fieldLabel}>Purchase Bill</Text>
+              <View style={ap.pickerWrap}>
+                <Ionicons name="receipt-outline" size={16} color="#9CA3AF" style={ap.pickerIcon} />
+                <View style={{ flex: 1 }}>
+                  {purchaseBills.length === 0 ? (
+                    <Text style={ap.emptyNote}>No purchase bills available</Text>
+                  ) : (
+                    purchaseBills.map(bill => (
+                      <TouchableOpacity
+                        key={bill.purchase_id}
+                        style={[ap.optionRow, String(bill.purchase_id) === selectedPurchaseId && ap.optionRowSelected]}
+                        onPress={() => handlePurchaseChange(String(bill.purchase_id))}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={ap.optionMain}>{bill.voucher_no}</Text>
+                          <Text style={ap.optionSub}>
+                            {formatCurrency(bill.gross_total)}
+                            {bill.payment_status === 'partial'
+                              ? `  ·  Due: ${formatCurrency(bill.outstanding)}`
+                              : ''}
+                          </Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                          {String(bill.purchase_id) === selectedPurchaseId && (
+                            <Ionicons name="checkmark-circle" size={18} color={Colors.brandColor} />
+                          )}
+                          <Text style={[ap.statusPill, { color: statusColor(bill.payment_status) }]}>
+                            {bill.payment_status}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {/* Transfer toggle — only if partial */}
+            {isSelectedPurchasePartial && (
+              <View style={ap.fieldGroup}>
+                <TouchableOpacity
+                  style={ap.checkRow}
+                  onPress={() => {
+                    setTransferEnabled(v => !v)
+                    setTransferPurchaseId('')
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[ap.checkbox, transferEnabled && ap.checkboxChecked]}>
+                    {transferEnabled && <Ionicons name="checkmark" size={12} color="#fff" />}
+                  </View>
+                  <Text style={ap.checkLabel}>Transfer remaining to another purchase bill</Text>
+                </TouchableOpacity>
+
+                {transferEnabled && (
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={[ap.fieldLabel, { marginBottom: 6 }]}>Transfer To</Text>
+                    <View style={ap.pickerWrap}>
+                      <View style={{ flex: 1 }}>
+                        {transferablePurchases.length === 0 ? (
+                          <Text style={ap.emptyNote}>No other purchase bills available</Text>
+                        ) : (
+                          transferablePurchases.map(bill => (
+                            <TouchableOpacity
+                              key={bill.purchase_id}
+                              style={[ap.optionRow, String(bill.purchase_id) === transferPurchaseId && ap.optionRowSelected]}
+                              onPress={() => setTransferPurchaseId(String(bill.purchase_id))}
+                            >
+                              <View style={{ flex: 1 }}>
+                                <Text style={ap.optionMain}>{bill.voucher_no}</Text>
+                                <Text style={ap.optionSub}>
+                                  {formatCurrency(bill.gross_total)}
+                                  {bill.payment_status === 'partial'
+                                    ? `  ·  Due: ${formatCurrency(bill.outstanding)}`
+                                    : ''}
+                                </Text>
+                              </View>
+                              {String(bill.purchase_id) === transferPurchaseId && (
+                                <Ionicons name="checkmark-circle" size={18} color={Colors.brandColor} />
+                              )}
+                            </TouchableOpacity>
+                          ))
+                        )}
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Error */}
+            {!!error && (
+              <View style={ap.errorBox}>
+                <Ionicons name="alert-circle-outline" size={14} color={Colors.brandColor} />
+                <Text style={ap.errorText}>{error}</Text>
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Footer */}
+          <View style={ap.footer}>
+            <TouchableOpacity style={ap.cancelBtn} onPress={handleClose} disabled={submitting}>
+              <Text style={ap.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[ap.submitBtn, submitting && ap.submitBtnDisabled]}
+              onPress={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={ap.submitText}>Adjust Payment</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
 // ─── Update Due Date Modal ────────────────────────────────────────────────────
 
 function UpdateDueDateModal({
@@ -458,6 +787,7 @@ export default function PartyDetailScreen() {
     id: '',
     currentDueDate: '',
   })
+  const [adjustModalVisible, setAdjustModalVisible] = useState(false)
 
   const openDueDateDialog = useCallback((
     type: 'sale' | 'purchase',
@@ -642,6 +972,16 @@ export default function PartyDetailScreen() {
         {!!detail.panNo && (
           <Text style={s.pan}>PAN: {detail.panNo}</Text>
         )}
+
+        {/* Adjust Payment */}
+        <TouchableOpacity
+          style={s.adjustBtn}
+          activeOpacity={0.8}
+          onPress={() => setAdjustModalVisible(true)}
+        >
+          <Ionicons name="swap-horizontal" size={14} color="#fff" />
+          <Text style={s.adjustBtnText}>Adjust Payment</Text>
+        </TouchableOpacity>
       </View>
 
       {/* ── Summary cards ──────────────────────────────────────────────────── */}
@@ -756,6 +1096,16 @@ export default function PartyDetailScreen() {
           onSuccess={runSync}
         />
       )}
+
+      {/* ── Adjust Payment Modal ────────────────────────────────────────────── */}
+      <AdjustPaymentModal
+        visible={adjustModalVisible}
+        partyId={partyId}
+        salesInvoices={salesInvoices}
+        purchaseBills={purchaseBills}
+        onClose={() => setAdjustModalVisible(false)}
+        onSuccess={runSync}
+      />
     </ScrollView>
   )
 }
@@ -877,6 +1227,20 @@ const s = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#F3F4F6',
   },
+
+  // ── Adjust Payment button ─────────────────────────────────────────────────
+  adjustBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    backgroundColor: Colors.brandColor,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  adjustBtnText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
 })
 
 // ─── Modal Styles ─────────────────────────────────────────────────────────────
@@ -970,4 +1334,133 @@ const ms = StyleSheet.create({
   },
   confirmText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   btnDisabled: { opacity: 0.6 },
+})
+
+// ─── Adjust Payment Modal Styles ──────────────────────────────────────────────
+const ap = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '85%',
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E7EB',
+  },
+  headerIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.brandColorLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  headerSub: { fontSize: 12, color: '#6B7280', marginTop: 1 },
+  closeBtn: { padding: 4 },
+  body: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, gap: 16 },
+  fieldGroup: { gap: 6 },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  pickerWrap: {
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    overflow: 'hidden',
+  },
+  pickerIcon: { padding: 12, paddingBottom: 0 },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F3F4F6',
+  },
+  optionRowSelected: {
+    backgroundColor: Colors.brandColorLight,
+  },
+  optionMain: { fontSize: 13, fontWeight: '600', color: '#111827' },
+  optionSub: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
+  statusPill: { fontSize: 10, fontWeight: '600', textTransform: 'capitalize' },
+  emptyNote: { fontSize: 12, color: '#9CA3AF', padding: 12 },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 4,
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.brandColor,
+    borderColor: Colors.brandColor,
+  },
+  checkLabel: { fontSize: 13, fontWeight: '500', color: '#374151', flex: 1 },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.brandColorLight,
+    borderWidth: 0.5,
+    borderColor: Colors.brandColor,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  errorText: { fontSize: 12, color: Colors.brandColor, fontWeight: '500', flex: 1 },
+  footer: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 0.5,
+    borderTopColor: '#E5E7EB',
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+  },
+  cancelText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
+  submitBtn: {
+    flex: 2,
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: Colors.brandColor,
+  },
+  submitBtnDisabled: { opacity: 0.6 },
+  submitText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
 })

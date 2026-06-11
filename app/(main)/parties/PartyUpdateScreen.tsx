@@ -1,6 +1,3 @@
-import { ApiEndPoints } from '@/network/ApiEndPoint'
-import { Colors } from '@/utils/colors'
-import { SessionManager } from '@/utils/sessionManager'
 import { Ionicons } from '@expo/vector-icons'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import React, { useState } from 'react'
@@ -16,6 +13,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { ApiEndPoints } from '../../../network/ApiEndPoint'
+import { Colors } from '../../../utils/colors'
+import { SessionManager } from '../../../utils/sessionManager'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

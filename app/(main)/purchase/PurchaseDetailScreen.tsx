@@ -1,7 +1,4 @@
 import { ShimmerBox } from '@/components/Shimmer'
-import PurchaseDetail, { PurchaseLineItem } from '@/Database/models/Purchasedetail'
-import { loadPurchaseDetail, syncPurchaseDetail } from '@/Services/Purchasedetailsync'
-import { Colors } from '@/utils/colors'
 import { Ionicons } from '@expo/vector-icons'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import React, { useCallback, useEffect, useState } from 'react'
@@ -13,6 +10,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import PurchaseDetail, { PurchaseLineItem } from '../../../Database/models/Purchasedetail'
+import { loadPurchaseDetail, syncPurchaseDetail } from '../../../Services/Purchasedetailsync'
+import { Colors } from '../../../utils/colors'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

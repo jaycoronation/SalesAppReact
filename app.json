@@ -7,14 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "salesapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/images/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": false,
+      "deploymentTarget": "16.4",
       "bundleIdentifier": "com.application.spssales",
       "buildNumber": "1",
       "infoPlist": {
@@ -32,7 +27,6 @@
         "backgroundImage": "./assets/images/ic_launcher_background.png",
         "monochromeImage": "./assets/images/ic_launcher_monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.application.spssales",
       "googleServicesFile": "./google-services.json"
@@ -40,6 +34,11 @@
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
+    },
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
     },
     "plugins": [
       "expo-router",
@@ -51,7 +50,7 @@
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": false
     },
     "extra": {
       "router": {},
