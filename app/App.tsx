@@ -1,17 +1,16 @@
 // App.tsx
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import AppNavigator from "./(main)/dashboard/_layout";
-import SplashScreen from './SplashScreen';
-
+import SplashScreen from "./SplashScreen";
 
 const App = () => {
-    const [splashDone, setSplashDone] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
 
-    if (!splashDone) {
-        return <SplashScreen onFinish={() => setSplashDone(true)} />;
-    }
+  if (!splashDone) {
+    return <SplashScreen onFinish={() => setSplashDone(true)} />;
+  }
 
-    return <AppNavigator />;
+  return <AppNavigator />;
 };
 
 export default App;

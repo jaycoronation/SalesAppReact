@@ -2,6 +2,11 @@
   "name": "salesapp",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "rnpm": {
+    "assets": [
+      "./assets/fonts/"
+    ]
+  },
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -47,6 +52,7 @@
     "expo-system-ui": "~56.0.5",
     "expo-web-browser": "~56.0.5",
     "firebase": "^10.14.1",
+    "lucide-react-native": "^0.577.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.85.3",
