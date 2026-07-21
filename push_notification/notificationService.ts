@@ -4,6 +4,7 @@ import { SessionManager } from '@/utils/sessionManager';
 import messaging from '@react-native-firebase/messaging';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
+import { Platform } from 'react-native';
 
 // ─── Content Types ─────────────────────────────────────────────────────────────
 export enum NotificationContentType {
@@ -148,6 +149,9 @@ export async function registerForPushNotifications(): Promise<string | null> {
       return sessionToken;
     }
 
+    if (Platform.OS === 'ios') {
+      await messaging().registerDeviceForRemoteMessages();
+    }
     const fcmToken = await messaging().getToken();
     if (fcmToken) {
       await SessionManager.setFCMToken(fcmToken);

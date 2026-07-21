@@ -1,7 +1,7 @@
 // app/(main)/dashboard/_layout.tsx
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Animated,
     StyleSheet,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../../utils/colors';
+import { SessionManager } from '../../../utils/sessionManager';
 
 import type { BottomTabNavigationEventMap } from '@react-navigation/bottom-tabs';
 import type { NavigationHelpers, ParamListBase, TabNavigationState } from '@react-navigation/native';
@@ -26,7 +27,9 @@ const ic_payables_selected = require('@/assets/images/ic_payables_selected.png')
 const ic_receivables = require('@/assets/images/ic_receivables.png');
 const ic_receivables_selected = require('@/assets/images/ic_receivables_selected.png');
 
-const TABS = [
+// ─── Tab definitions ──────────────────────────────────────────────────────────
+
+const FULL_TABS = [
     { route: 'parties', label: 'Parties', icon: ic_parties, iconSelected: ic_parties_selected },
     { route: 'invoices', label: 'Invoices', icon: ic_invoice, iconSelected: ic_invoice_selected },
     { route: 'index', label: 'Dashboard', icon: ic_dashboard, iconSelected: ic_dashboard_selected },
@@ -34,14 +37,23 @@ const TABS = [
     { route: 'payables', label: 'Payables', icon: ic_payables, iconSelected: ic_payables_selected },
 ];
 
+// Store manager gets a single "Store" tab using the dashboard icon
+// — swap ic_dashboard for a dedicated store icon if you have one
+const STORE_TABS = [
+    { route: 'store', label: 'Store', icon: ic_dashboard, iconSelected: ic_dashboard_selected },
+];
+
+// ─── Custom Tab Bar ───────────────────────────────────────────────────────────
+
 type SimpleTabBarProps = {
     state: TabNavigationState<ParamListBase>;
     navigation: NavigationHelpers<ParamListBase, BottomTabNavigationEventMap>;
+    tabs: typeof FULL_TABS;
 };
 
-const CustomTabBar: React.FC<SimpleTabBarProps> = ({ state, navigation }) => {
+const CustomTabBar: React.FC<SimpleTabBarProps> = ({ state, navigation, tabs }) => {
     const insets = useSafeAreaInsets();
-    const scales = useRef(TABS.map(() => new Animated.Value(1))).current;
+    const scales = useRef(tabs.map(() => new Animated.Value(1))).current;
 
     useEffect(() => {
         scales.forEach((anim, i) =>
@@ -55,7 +67,7 @@ const CustomTabBar: React.FC<SimpleTabBarProps> = ({ state, navigation }) => {
     return (
         <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <BlurView intensity={80} tint="light" style={styles.blurContainer}>
-                {TABS.map((tab, idx) => {
+                {tabs.map((tab, idx) => {
                     const focused = state.index === idx;
                     return (
                         <TouchableOpacity
@@ -86,22 +98,53 @@ const CustomTabBar: React.FC<SimpleTabBarProps> = ({ state, navigation }) => {
     );
 };
 
+// ─── Layout ───────────────────────────────────────────────────────────────────
+
 export default function DashboardLayout() {
+    const [userType, setUserType] = useState<string | null>(null);
+    const [ready, setReady] = useState(false);
+
     useEffect(() => {
-        console.log('Dashboard tabs mounted');
+        SessionManager.getUserType().then((type) => {
+            setUserType(type);
+            setReady(true);
+        });
     }, []);
+
+    // Don't render tabs until we know the user type —
+    // prevents a flash of wrong tabs on mount
+    if (!ready) return null;
+
+    const isStoreManager = userType === 'store_manager';
+    const tabs = isStoreManager ? STORE_TABS : FULL_TABS;
 
     return (
         <Tabs
-            initialRouteName="index"
+            initialRouteName={isStoreManager ? 'store' : 'index'}
             screenOptions={{ headerShown: false }}
-            tabBar={(props) => <CustomTabBar {...(props as any)} />}
+            tabBar={(props) => <CustomTabBar {...(props as any)} tabs={tabs} />}
         >
-            <Tabs.Screen name="parties" />
-            <Tabs.Screen name="invoices" />
-            <Tabs.Screen name="index" />
-            <Tabs.Screen name="receivables" />
-            <Tabs.Screen name="payables" />
+            {isStoreManager ? (
+                <>
+                    <Tabs.Screen name="store" />
+                    {/* Hide all non-store screens from navigation */}
+                    <Tabs.Screen name="index" options={{ href: null }} />
+                    <Tabs.Screen name="parties" options={{ href: null }} />
+                    <Tabs.Screen name="invoices" options={{ href: null }} />
+                    <Tabs.Screen name="receivables" options={{ href: null }} />
+                    <Tabs.Screen name="payables" options={{ href: null }} />
+                </>
+            ) : (
+                <>
+                    <Tabs.Screen name="parties" />
+                    <Tabs.Screen name="invoices" />
+                    <Tabs.Screen name="index" />
+                    <Tabs.Screen name="receivables" />
+                    <Tabs.Screen name="payables" />
+                    {/* Hide store screen from non-store-managers */}
+                    <Tabs.Screen name="store" options={{ href: null }} />
+                </>
+            )}
         </Tabs>
     );
 }

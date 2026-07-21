@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Dimensions,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
@@ -30,6 +31,8 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+
+const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
@@ -49,17 +52,9 @@ function Toast({
   useEffect(() => {
     if (visible) {
       Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
+        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
         Animated.delay(2200),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
+        Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
       ]).start();
     }
   }, [visible, message]);
@@ -68,11 +63,7 @@ function Toast({
 
   return (
     <Animated.View
-      style={[
-        s.toast,
-        type === "success" ? s.toastSuccess : s.toastError,
-        { opacity },
-      ]}
+      style={[s.toast, type === "success" ? s.toastSuccess : s.toastError, { opacity }]}
     >
       <Ionicons
         name={type === "success" ? "checkmark-circle" : "alert-circle"}
@@ -84,7 +75,32 @@ function Toast({
   );
 }
 
-// ─── COMMON SEARCHABLE BOTTOMSHEET DIALOG ──────────────────────────────────────
+// ─── Field wrapper (matches PartyUpdateScreen) ────────────────────────────────
+
+function Field({
+  label,
+  required,
+  error,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={s.field}>
+      <Text style={s.label}>
+        {label}
+        {required && <Text style={s.required}> *</Text>}
+      </Text>
+      {children}
+      {!!error && <Text style={s.errorMsg}>{error}</Text>}
+    </View>
+  );
+}
+
+// ─── Searchable BottomSheet ───────────────────────────────────────────────────
 
 interface SearchableBottomSheetProps<T> {
   visible: boolean;
@@ -108,7 +124,7 @@ function SearchableBottomSheet<T>({
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    if (visible) setSearchQuery(""); // Reset search on open
+    if (visible) setSearchQuery("");
   }, [visible]);
 
   const filteredItems = items.filter((item) =>
@@ -123,107 +139,87 @@ function SearchableBottomSheet<T>({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={s.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ width: "100%" }}
-          >
-            {/* Outer wrapper allows clicking outside to close */}
-            <TouchableWithoutFeedback onPress={onClose}>
-              <View style={s.modalOverlayStylesOverride}>
-                {/* Main BottomSheet Container */}
-                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                  <View style={s.bottomSheetContainer}>
-                    <View style={s.sheetHandle} />
+      <View style={s.modalOverlay}>
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={s.modalDismissArea} />
+        </TouchableWithoutFeedback>
 
-                    <View style={s.sheetHeader}>
-                      <Text style={s.sheetTitle}>Select {title}</Text>
-                      <TouchableOpacity onPress={onClose}>
-                        <Ionicons name="close" size={22} color="#4B5563" />
-                      </TouchableOpacity>
-                    </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={s.bottomSheetContainer}>
+            <TouchableOpacity style={s.sheetHandleWrap} onPress={onClose} activeOpacity={1}>
+              <View style={s.sheetHandle} />
+            </TouchableOpacity>
 
-                    <View style={s.searchContainer}>
-                      <Ionicons
-                        name="search"
-                        size={18}
-                        color="#9CA3AF"
-                        style={s.searchIcon}
-                      />
-                      <TextInput
-                        style={s.searchInput}
-                        placeholder={`Search ${title.toLowerCase()}...`}
-                        placeholderTextColor="#9CA3AF"
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                        clearButtonMode="while-editing"
-                        autoCorrect={false}
-                      />
-                    </View>
+            <View style={s.sheetHeader}>
+              <Text style={s.sheetTitle}>Select {title}</Text>
+              <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
 
-                    {/* FlatList with dynamic height based on content */}
-                    <FlatList
-                      data={filteredItems}
-                      keyExtractor={(_, idx) => idx.toString()}
-                      keyboardShouldPersistTaps="handled"
-                      contentContainerStyle={{ paddingBottom: 40 }}
-                      style={s.listStyleDialog}
-                      ListEmptyComponent={
-                        <View style={s.emptyContainer}>
-                          <Text style={s.emptyText}>
-                            No matching data found
-                          </Text>
-                        </View>
-                      }
-                      renderItem={({ item }) => {
-                        const isSelected =
-                          JSON.stringify(item) === JSON.stringify(selectedItem);
-                        return (
-                          <TouchableOpacity
-                            style={[
-                              s.dropdownItem,
-                              isSelected && s.dropdownItemActive,
-                            ]}
-                            activeOpacity={0.7}
-                            onPress={() => {
-                              onSelect(item);
-                              onClose();
-                              Keyboard.dismiss();
-                            }}
-                          >
-                            <Text
-                              style={[
-                                s.dropdownItemText,
-                                isSelected && s.dropdownItemTextActive,
-                              ]}
-                              numberOfLines={2}
-                            >
-                              {String(item[labelKey])}
-                            </Text>
-                            {isSelected && (
-                              <Ionicons
-                                name="checkmark"
-                                size={16}
-                                color={Colors.brandColor}
-                              />
-                            )}
-                          </TouchableOpacity>
-                        );
-                      }}
-                    />
-                  </View>
-                </TouchableWithoutFeedback>
-              </View>
-            </TouchableWithoutFeedback>
-          </KeyboardAvoidingView>
-        </View>
-      </TouchableWithoutFeedback>
+            <View style={s.searchContainer}>
+              <Ionicons name="search" size={18} color="#9CA3AF" style={s.searchIcon} />
+              <TextInput
+                style={s.searchInput}
+                placeholder={`Search ${title.toLowerCase()}...`}
+                placeholderTextColor="#9CA3AF"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                clearButtonMode="while-editing"
+                autoCorrect={false}
+              />
+            </View>
+
+            <FlatList
+              data={filteredItems}
+              keyExtractor={(_, idx) => idx.toString()}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 32 }}
+              style={s.listStyleDialog}
+              ListEmptyComponent={
+                <View style={s.emptyContainer}>
+                  <Text style={s.emptyText}>No matching data found</Text>
+                </View>
+              }
+              renderItem={({ item }) => {
+                const isSelected =
+                  JSON.stringify(item) === JSON.stringify(selectedItem);
+                return (
+                  <TouchableOpacity
+                    style={[s.dropdownItem, isSelected && s.dropdownItemActive]}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      onSelect(item);
+                      onClose();
+                      Keyboard.dismiss();
+                    }}
+                  >
+                    <Text
+                      style={[
+                        s.dropdownItemText,
+                        isSelected && s.dropdownItemTextActive,
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {String(item[labelKey])}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={16} color={Colors.brandColor} />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
-// ─── Select Picker ────────────────────────────────────────────────────────────
+// ─── Select Field ─────────────────────────────────────────────────────────────
 
 function SelectField<T>({
   label,
@@ -251,25 +247,13 @@ function SelectField<T>({
   const [open, setOpen] = useState(false);
 
   return (
-    <View style={s.fieldGroup}>
-      <Text style={s.label}>
-        {label}
-        {required && <Text style={s.required}> *</Text>}
-      </Text>
-
+    <Field label={label} required={required} error={error}>
       <TouchableOpacity
-        style={[
-          s.selectTrigger,
-          error ? s.inputError : null,
-          disabled && s.inputDisabled,
-        ]}
+        style={[s.selectTrigger, error ? s.inputError : null, disabled && s.inputDisabled]}
         activeOpacity={0.8}
         onPress={() => !disabled && setOpen(true)}
       >
-        <Text
-          style={[s.selectValue, !selected && s.placeholder]}
-          numberOfLines={1}
-        >
+        <Text style={[s.selectValue, !selected && s.placeholder]} numberOfLines={1}>
           {selected ? String(selected[labelKey]) : placeholder}
         </Text>
         {loading ? (
@@ -279,9 +263,6 @@ function SelectField<T>({
         )}
       </TouchableOpacity>
 
-      {error ? <Text style={s.errorText}>{error}</Text> : null}
-
-      {/* Reusable Common Bottom Sheet Calling Here */}
       <SearchableBottomSheet
         visible={open}
         onClose={() => setOpen(false)}
@@ -291,7 +272,7 @@ function SelectField<T>({
         labelKey={labelKey}
         onSelect={onSelect}
       />
-    </View>
+    </Field>
   );
 }
 
@@ -302,40 +283,30 @@ export default function AddEditOutwardScreen() {
   const item: OutwardListData = params.item ? JSON.parse(params.item) : null;
   const isEdit = !!item?.outward_id;
 
-  // ── Department ────────────────────────────────────────────────────────────
   const [departments, setDepartments] = useState<DepartmentData[]>([]);
   const [selectedDept, setSelectedDept] = useState<DepartmentData | null>(null);
   const [deptLoading, setDeptLoading] = useState(true);
 
-  // ── Material ──────────────────────────────────────────────────────────────
   const [materials, setMaterials] = useState<MaterialListData[]>([]);
-  const [selectedMaterial, setSelectedMaterial] =
-    useState<MaterialListData | null>(null);
+  const [selectedMaterial, setSelectedMaterial] = useState<MaterialListData | null>(null);
   const [materialLoading, setMaterialLoading] = useState(false);
 
-  // ── Form fields ───────────────────────────────────────────────────────────
   const [qty, setQty] = useState<string>(item?.qty ?? "");
   const [rate, setRate] = useState<string>("");
   const [value, setValue] = useState<string>(item?.value ?? "");
   const [issuedTo, setIssuedTo] = useState<string>(item?.issued_to ?? "");
   const [remarks, setRemarks] = useState<string>(item?.remarks ?? "");
 
-  // ── Errors ────────────────────────────────────────────────────────────────
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // ── Submit ────────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState<{
-    message: string;
-    type: ToastType;
-    key: number;
-  } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: ToastType; key: number } | null>(
+    null,
+  );
 
   const qtyRef = useRef<TextInput>(null);
   const rateRef = useRef<TextInput>(null);
+  const issuedToRef = useRef<TextInput>(null);
   const remarksRef = useRef<TextInput>(null);
-
-  // ── Fetch departments on mount ─────────────────────────────────────────────
 
   useEffect(() => {
     fetchDepartments();
@@ -346,21 +317,13 @@ export default function AddEditOutwardScreen() {
       const token = await SessionManager.getToken();
       const res = await fetch(ApiEndPoints.DEPARTMENT_LIST, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
       const json: DepartmentListResponseModel = await res.json();
-      console.log("Department List Response:", json);
-
       if (json.success === 1) {
         setDepartments(json.data);
-        // Edit mode: restore department from item
         if (isEdit && item?.dept_id) {
-          const dept = json.data.find(
-            (d: DepartmentData) => d.dept_id === item.dept_id,
-          );
+          const dept = json.data.find((d: DepartmentData) => d.dept_id === item.dept_id);
           if (dept) setSelectedDept(dept);
         }
       }
@@ -370,8 +333,6 @@ export default function AddEditOutwardScreen() {
       setDeptLoading(false);
     }
   }
-
-  // ── Fetch materials when dept selected ─────────────────────────────────────
 
   useEffect(() => {
     if (!selectedDept) return;
@@ -383,23 +344,12 @@ export default function AddEditOutwardScreen() {
     setSelectedMaterial(null);
     try {
       const token = await SessionManager.getToken();
-
-      const res = await fetch(
-        `${ApiEndPoints.MATERIAL_LIST}?dept_id=${dept_id}&limit=1000`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
+      const res = await fetch(`${ApiEndPoints.MATERIAL_LIST}?dept_id=${dept_id}&limit=1000`, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
       const json: MaterialListResponseModel = await res.json();
-      console.log("Material List Response:", json);
-
       if (json.success === 1) {
         setMaterials(json.data);
-        // Edit mode: restore material from item
         if (isEdit && item?.material_id) {
           const mat = json.data.find(
             (m: MaterialListData) => m.material_id === item.material_id,
@@ -407,8 +357,6 @@ export default function AddEditOutwardScreen() {
           if (mat) {
             setSelectedMaterial(mat);
             setRate(mat.rate);
-          } else {
-            console.log("Material not found");
           }
         }
       }
@@ -418,8 +366,6 @@ export default function AddEditOutwardScreen() {
       setMaterialLoading(false);
     }
   }
-
-  // ── material selected ──────────────────────────────────
 
   function onMaterialSelect(mat: MaterialListData) {
     setSelectedMaterial(mat);
@@ -449,8 +395,6 @@ export default function AddEditOutwardScreen() {
     else setValue("");
   }
 
-  // ── Validation ─────────────────────────────────────────────────────────────
-
   function clearError(key: string) {
     setErrors((prev) => {
       const n = { ...prev };
@@ -464,17 +408,13 @@ export default function AddEditOutwardScreen() {
     if (!selectedDept) e.dept = "Please select a department";
     if (!selectedMaterial) e.material = "Please select a material";
     if (!qty.trim()) e.qty = "Quantity is required";
-    else if (isNaN(parseFloat(qty)) || parseFloat(qty) <= 0)
-      e.qty = "Enter a valid quantity";
+    else if (isNaN(parseFloat(qty)) || parseFloat(qty) <= 0) e.qty = "Enter a valid quantity";
     if (!rate.trim()) e.rate = "Rate is required";
-    else if (isNaN(parseFloat(rate)) || parseFloat(rate) < 0)
-      e.rate = "Enter a valid rate";
+    else if (isNaN(parseFloat(rate)) || parseFloat(rate) < 0) e.rate = "Enter a valid rate";
     if (!issuedTo.trim()) e.issuedTo = "Issued To is required";
     setErrors(e);
     return Object.keys(e).length === 0;
   }
-
-  // ── Submit ─────────────────────────────────────────────────────────────────
 
   async function handleSubmit() {
     Keyboard.dismiss();
@@ -482,6 +422,15 @@ export default function AddEditOutwardScreen() {
 
     setLoading(true);
     try {
+
+      const saved = await SessionManager.getDashFilter();
+      let month = 0;
+      let year = 0;
+      if (saved) {
+        month = saved.month;
+        year = saved.year;
+      }
+
       const body: Record<string, string> = {
         dept_id: selectedDept!.dept_id,
         material_id: selectedMaterial!.material_id,
@@ -490,27 +439,23 @@ export default function AddEditOutwardScreen() {
         value: value || (parseFloat(qty) * parseFloat(rate)).toFixed(2),
         issued_to: issuedTo.trim(),
         remarks: remarks.trim(),
+        month: month.toString(),
+        year: year.toString(),
       };
       if (isEdit) body.outward_id = item.outward_id;
 
       const token = await SessionManager.getToken();
-
       const res = await fetch(ApiEndPoints.ADD_OUTWARD, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const json: CommonResponseModel = await res.json();
-      console.log("Add Outward Response:", json);
-
       if (json.success === 1) {
         router.back();
         showToast(
           json.message ??
-            `${isEdit ? "Update Outward Successfully" : "Add Outward Successfully"}`,
+          `${isEdit ? "Update Outward Successfully" : "Add Outward Successfully"}`,
           "success",
         );
       } else {
@@ -527,267 +472,230 @@ export default function AddEditOutwardScreen() {
     setToast({ message, type, key: Date.now() });
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <View style={s.container}>
-        <Stack.Screen
-          options={{
-            title: isEdit ? "Edit Outward" : "Add New Outward",
-            headerShown: true,
-            headerBackTitle: "",
-            animation: "none",
-            headerTintColor: Colors.brandColor,
-          }}
-        />
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <Stack.Screen
+        options={{
+          title: isEdit ? "Edit Outward" : "Add New Outward",
+          headerShown: true,
+          headerBackButtonDisplayMode: "minimal",
+          headerTintColor: Colors.brandColor,
+          animation: "none",
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{ marginLeft: 4, marginRight: 8 }}
+            >
+              <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+            </TouchableOpacity>
+          ),
+        }}
+      />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={s.kav}
-        >
-          <ScrollView
-            contentContainerStyle={s.scroll}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={s.card}>
-              {/* Department */}
-              <SelectField
-                label="Department"
-                required
-                placeholder="Select department"
-                items={departments}
-                selected={selectedDept}
-                labelKey="dept_name"
-                onSelect={(dept) => {
-                  setSelectedDept(dept);
-                  setSelectedMaterial(null);
-                  clearError("dept");
-                }}
-                loading={deptLoading}
-                error={errors.dept}
-              />
+      <ScrollView
+        style={s.container}
+        contentContainerStyle={s.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Selection ────────────────────────────────────────────────────── */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Material Selection</Text>
 
-              <SelectField
-                label="Material"
-                required
-                placeholder={
-                  selectedDept ? "Select material" : "Select department first"
-                }
-                items={materials}
-                selected={selectedMaterial}
-                labelKey="material_name"
-                onSelect={onMaterialSelect}
-                loading={materialLoading}
-                error={errors.material}
-                disabled={!selectedDept || materialLoading}
-              />
+          <SelectField
+            label="Department"
+            required
+            placeholder="Select department"
+            items={departments}
+            selected={selectedDept}
+            labelKey="dept_name"
+            onSelect={(dept) => {
+              setSelectedDept(dept);
+              setSelectedMaterial(null);
+              clearError("dept");
+            }}
+            loading={deptLoading}
+            error={errors.dept}
+          />
 
-              {/* Quantity + Issued To row */}
+          <SelectField
+            label="Material"
+            required
+            placeholder={selectedDept ? "Select material" : "Select department first"}
+            items={materials}
+            selected={selectedMaterial}
+            labelKey="material_name"
+            onSelect={onMaterialSelect}
+            loading={materialLoading}
+            error={errors.material}
+            disabled={!selectedDept || materialLoading}
+          />
+        </View>
 
-              <View style={s.row2}>
-                <View style={[s.fieldGroup, s.flex1]}>
-                  <Text style={s.label}>
-                    Quantity<Text style={s.required}> *</Text>
-                  </Text>
-                  <TextInput
-                    ref={qtyRef}
-                    style={[s.input, errors.qty ? s.inputError : null]}
-                    placeholder="0"
-                    placeholderTextColor="#9CA3AF"
-                    value={qty}
-                    onChangeText={onQtyChange}
-                    keyboardType="decimal-pad"
-                    returnKeyType="next"
-                    onSubmitEditing={() => rateRef.current?.focus()}
-                  />
-                  {errors.qty && <Text style={s.errorText}>{errors.qty}</Text>}
-                </View>
+        {/* ── Quantity & Rate ──────────────────────────────────────────────── */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Quantity & Rate</Text>
 
-                <View style={[s.fieldGroup, s.flex1]}>
-                  <Text style={s.label}>
-                    Rate<Text style={s.required}> *</Text>
-                  </Text>
-                  <TextInput
-                    ref={rateRef}
-                    style={[s.input, errors.rate ? s.inputError : null]}
-                    placeholder="0.00"
-                    placeholderTextColor="#9CA3AF"
-                    value={rate}
-                    onChangeText={onRateChange}
-                    keyboardType="decimal-pad"
-                    returnKeyType="next"
-                    onSubmitEditing={() => remarksRef.current?.focus()}
-                  />
-                  {errors.rate && (
-                    <Text style={s.errorText}>{errors.rate}</Text>
-                  )}
-                </View>
+          <View style={s.row2}>
+            <Field label="Quantity" required error={errors.qty}>
+              <View style={s.flex1}>
+                <TextInput
+                  ref={qtyRef}
+                  style={[s.input, errors.qty ? s.inputError : null]}
+                  placeholder="0"
+                  placeholderTextColor="#9CA3AF"
+                  value={qty}
+                  onChangeText={onQtyChange}
+                  keyboardType="decimal-pad"
+                  returnKeyType="next"
+                  onSubmitEditing={() => rateRef.current?.focus()}
+                />
               </View>
+            </Field>
 
-              <View style={s.fieldGroup}>
-                <Text style={s.label}>Value</Text>
-                <View style={s.valueBox}>
-                  <Text style={[s.valueText, !value && s.placeholder]}>
-                    {value || "0.00"}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Issued To */}
-              <View style={[s.fieldGroup]}>
-                <Text style={s.label}>
-                  Issued To<Text style={s.required}> *</Text>
-                </Text>
+            <Field label="Rate" required error={errors.rate}>
+              <View style={s.flex1}>
                 <TextInput
                   ref={rateRef}
-                  style={[s.input, errors.issuedTo ? s.inputError : null]}
-                  placeholder="Enter Issueed to"
+                  style={[s.input, errors.rate ? s.inputError : null]}
+                  placeholder="0.00"
                   placeholderTextColor="#9CA3AF"
-                  value={issuedTo}
-                  onChangeText={(text) => {
-                    setIssuedTo(text);
-                    clearError("issuedTo");
-                  }}
+                  value={rate}
+                  onChangeText={onRateChange}
+                  keyboardType="decimal-pad"
                   returnKeyType="next"
-                />
-                {errors.issuedTo ? (
-                  <Text style={s.errorText}>{errors.issuedTo}</Text>
-                ) : null}
-              </View>
-
-              {/* Remarks */}
-              <View style={s.fieldGroup}>
-                <Text style={s.label}>Remarks</Text>
-                <TextInput
-                  ref={remarksRef}
-                  style={[s.input, s.textarea]}
-                  placeholder="Enter remarks"
-                  placeholderTextColor="#9CA3AF"
-                  value={remarks}
-                  onChangeText={setRemarks}
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                  returnKeyType="done"
-                  blurOnSubmit
+                  onSubmitEditing={() => issuedToRef.current?.focus()}
                 />
               </View>
+            </Field>
+          </View>
 
-              {/* Buttons */}
-              <View style={s.btnRow}>
-                <TouchableOpacity
-                  style={[s.submitBtn, loading && s.submitBtnDisabled]}
-                  activeOpacity={0.8}
-                  onPress={handleSubmit}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={s.submitText}>
-                      {isEdit ? "Update Entry" : "Add Entry"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
+          <Field label="Value (Auto-calculated)">
+            <View style={s.valueBox}>
+              <Text style={[s.valueText, !value && s.placeholder]}>{value || "0.00"}</Text>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+          </Field>
+        </View>
 
-        {toast && (
-          <Toast
-            key={toast.key}
-            message={toast.message}
-            type={toast.type}
-            visible
-          />
-        )}
-      </View>
-    </TouchableWithoutFeedback>
+        {/* ── Dispatch Info ────────────────────────────────────────────────── */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Dispatch Details</Text>
+
+          <Field label="Issued To" required error={errors.issuedTo}>
+            <TextInput
+              ref={issuedToRef}
+              style={[s.input, errors.issuedTo ? s.inputError : null]}
+              placeholder="Enter issued to"
+              placeholderTextColor="#9CA3AF"
+              value={issuedTo}
+              onChangeText={(text) => {
+                setIssuedTo(text);
+                clearError("issuedTo");
+              }}
+              returnKeyType="next"
+              onSubmitEditing={() => remarksRef.current?.focus()}
+            />
+          </Field>
+
+          <Field label="Remarks">
+            <TextInput
+              ref={remarksRef}
+              style={[s.input, s.inputMultiline]}
+              placeholder="Enter remarks (optional)"
+              placeholderTextColor="#9CA3AF"
+              value={remarks}
+              onChangeText={setRemarks}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+              returnKeyType="done"
+              blurOnSubmit
+            />
+          </Field>
+        </View>
+
+        {/* ── Submit ───────────────────────────────────────────────────────── */}
+        <TouchableOpacity
+          style={[s.saveBtn, loading && s.saveBtnDisabled]}
+          onPress={handleSubmit}
+          disabled={loading}
+          activeOpacity={0.8}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={s.saveBtnText}>{isEdit ? "Update Entry" : "Add Entry"}</Text>
+          )}
+        </TouchableOpacity>
+
+        <View style={s.footer} />
+      </ScrollView>
+
+      {toast && <Toast key={toast.key} message={toast.message} type={toast.type} visible />}
+    </KeyboardAvoidingView>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
-  kav: { flex: 1 },
-  scroll: { padding: 16, paddingBottom: 40 },
-  backBtn: { paddingRight: 8 },
+  container: { flex: 1, backgroundColor: "#F3F4F6" },
+  content: { padding: 16 },
+  footer: { height: 32 },
 
-  // ── Card ──────────────────────────────────────────────────────────────────
-  card: {
+  // Section
+  section: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    padding: 16,
     marginBottom: 14,
+    borderWidth: 0.5,
+    borderColor: "#E5E7EB",
+    gap: 14,
   },
-  cardTitle: {
-    fontSize: 17,
+  sectionTitle: {
+    fontSize: 12,
     fontWeight: "700",
-    color: "#111827",
-    letterSpacing: -0.2,
+    color: "#9CA3AF",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 2,
   },
-  divider: { height: 1, backgroundColor: "#F3F4F6", marginBottom: 18 },
 
-  // ── Fields ────────────────────────────────────────────────────────────────
-  fieldGroup: { marginBottom: 16, gap: 6 },
-  flex1: { flex: 1 },
+  // Field
+  field: { gap: 6, flex: 1 },
   label: { fontSize: 13, fontWeight: "600", color: "#374151" },
-  required: { color: Colors.brandColor },
-  autoTag: { fontSize: 11, fontWeight: "400", color: "#9CA3AF" },
+  required: { color: "#EF4444" },
+  errorMsg: { fontSize: 11, color: "#EF4444", marginTop: 2 },
 
+  // Input
   input: {
-    height: 48,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: "#D1D5DB",
     borderRadius: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === "ios" ? 12 : 10,
     fontSize: 14,
     color: "#111827",
     backgroundColor: "#FAFAFA",
   },
-  textarea: {
-    height: 90,
-    paddingTop: 12,
-  },
-  inputError: { borderColor: Colors.brandColor, backgroundColor: "#FFF5F5" },
+  inputError: { borderColor: "#EF4444", backgroundColor: "#FFF5F5" },
   inputDisabled: { backgroundColor: "#F3F4F6", opacity: 0.6 },
-  errorText: { fontSize: 12, color: Colors.brandColor, fontWeight: "500" },
+  inputMultiline: { height: 88, paddingTop: 10 },
   placeholder: { color: "#9CA3AF" },
-
-  // Value box (read-only)
-  valueBox: {
-    height: 48,
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    backgroundColor: "#F3F4F6",
-    justifyContent: "center",
-  },
-  valueText: { fontSize: 14, color: "#111827", fontWeight: "600" },
 
   // Select trigger
   selectTrigger: {
-    height: 48,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: "#D1D5DB",
     borderRadius: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === "ios" ? 12 : 10,
     backgroundColor: "#FAFAFA",
     flexDirection: "row",
     alignItems: "center",
@@ -795,114 +703,60 @@ const s = StyleSheet.create({
   },
   selectValue: { fontSize: 14, color: "#111827", flex: 1, marginRight: 8 },
 
-  // Dropdown
-  dropdownMenu: {
+  // Value box (read-only)
+  valueBox: {
     borderWidth: 1,
     borderColor: "#E5E7EB",
     borderRadius: 10,
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    marginTop: 2,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === "ios" ? 12 : 10,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
   },
-  dropdownItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#F3F4F6",
-  },
-  dropdownItemActive: { backgroundColor: `${Colors.brandColor}12` },
-  dropdownItemText: { fontSize: 13, color: "#374151", flex: 1, marginRight: 8 },
-  dropdownItemTextActive: { color: Colors.brandColor, fontWeight: "600" },
+  valueText: { fontSize: 14, color: "#111827", fontWeight: "600" },
 
-  // ── 2-col row ─────────────────────────────────────────────────────────────
+  // Two-column row
   row2: { flexDirection: "row", gap: 12 },
+  flex1: { flex: 1 },
 
-  // ── Buttons ───────────────────────────────────────────────────────────────
-  btnRow: { flexDirection: "row", gap: 12, marginTop: 8 },
-  cancelBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: "#D1D5DB",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  cancelText: { fontSize: 14, fontWeight: "600", color: "#374151" },
-  submitBtn: {
-    flex: 1.4,
-    height: 48,
-    borderRadius: 10,
+  // Save button
+  saveBtn: {
     backgroundColor: Colors.brandColor,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  submitBtnDisabled: { opacity: 0.65 },
-  submitText: { fontSize: 14, fontWeight: "700", color: "#FFFFFF" },
-
-  // ── Toast ─────────────────────────────────────────────────────────────────
-  toast: {
-    position: "absolute",
-    bottom: 40,
-    left: 20,
-    right: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
     borderRadius: 12,
-    shadowColor: "#000",
+    paddingVertical: 15,
+    alignItems: "center",
+    marginTop: 4,
+    shadowColor: Colors.brandColor,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 4,
   },
-  toastSuccess: { backgroundColor: "#16A34A" },
-  toastError: { backgroundColor: "#DC2626" },
-  toastText: { flex: 1, fontSize: 13, fontWeight: "600", color: "#FFFFFF" },
+  saveBtnDisabled: { opacity: 0.65 },
+  saveBtnText: { fontSize: 15, fontWeight: "700", color: "#FFFFFF", letterSpacing: 0.2 },
 
-  // ── BottomSheet Styles ─────────────────────────────────────────────────────
+  // ── BottomSheet ────────────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.4)",
     justifyContent: "flex-end",
   },
-  modalOverlayStylesOverride: {
-    width: "100%",
-    justifyContent: "flex-end",
-  },
+  modalDismissArea: { flex: 1 },
   bottomSheetContainer: {
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 16,
     width: "100%",
-    // Khas badlav: Max height ko 85% kiya aur explicit height ko remove kiya
-    // taaki content ke sath container automatic shrink/grow ho sake
-    maxHeight: "85%",
+    maxHeight: SCREEN_HEIGHT * 0.88,
   },
-  listStyleDialog: {
-    // flexGrow: 0 lagane se FlatList utni hi height leti hai jitne items hote hain.
-    // Agar items zyada hain toh automatic scroll enable ho jayega bina UI bigde.
-    flexGrow: 0,
-  },
+  sheetHandleWrap: { alignItems: "center", paddingTop: 10, paddingBottom: 6 },
+  listStyleDialog: { flexGrow: 0 },
   sheetHandle: {
     width: 40,
     height: 5,
     backgroundColor: "#E5E7EB",
     borderRadius: 3,
-    alignSelf: "center",
-    marginTop: 10,
-    marginBottom: 15,
   },
   sheetHeader: {
     flexDirection: "row",
@@ -922,7 +776,40 @@ const s = StyleSheet.create({
   },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, fontSize: 14, color: "#111827", paddingVertical: 0 },
-  listStyle: { flexGrow: 0, maxHeight: 300 },
+  dropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  dropdownItemActive: { backgroundColor: `${Colors.brandColor}12` },
+  dropdownItemText: { fontSize: 14, color: "#374151", flex: 1, marginRight: 8 },
+  dropdownItemTextActive: { color: Colors.brandColor, fontWeight: "600" },
   emptyContainer: { padding: 30, alignItems: "center" },
   emptyText: { color: "#9CA3AF", fontSize: 14 },
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  toast: {
+    position: "absolute",
+    bottom: 40,
+    left: 20,
+    right: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderRadius: 12,
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  toastSuccess: { backgroundColor: "#16A34A" },
+  toastError: { backgroundColor: "#DC2626" },
+  toastText: { flex: 1, fontSize: 13, fontWeight: "600", color: "#FFFFFF" },
 });

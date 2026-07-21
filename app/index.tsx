@@ -5,11 +5,14 @@ import { SessionManager } from '../utils/sessionManager';
 
 export default function Index() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [userType, setUserType] = useState<string | null>(null);
 
   useEffect(() => {
     const checkSession = async () => {
       const status = await SessionManager.getIsLoggedIn();
+      const userType = await SessionManager.getUserType();
       setIsLoggedIn(status);
+      setUserType(userType);
     };
     checkSession();
   }, []);
@@ -35,5 +38,5 @@ export default function Index() {
   //   return <Redirect href="/(auth)/login" />;
   // }
 
-  return isLoggedIn ? <Redirect href="/(main)/dashboard" /> : <Redirect href="/(auth)/login" />;
+  return isLoggedIn ? userType === "store_manager" ? <Redirect href="/(main)/store_management/store" /> : <Redirect href="/(main)/dashboard" /> : <Redirect href="/(auth)/login" />;
 }

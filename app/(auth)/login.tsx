@@ -134,20 +134,36 @@ export default function LoginScreen() {
   const callAPI = async () => {
     try {
       setIsLoading(true)
-      await getFirebaseToken();
-      const deviceToken = await SessionManager.getFCMToken();
-
+      const deviceToken = await getFirebaseToken();
       const modelName = Device.modelName
 
-      const res = await loginAPI(username, password, deviceToken || '', modelName || '', Platform.OS == 'ios' ? 'ios' : 'android')
+      const res = await loginAPI(
+        username,
+        password,
+        deviceToken || '',
+        modelName || '',
+        Platform.OS === 'ios' ? 'ios' : 'android',
+      )
+
       if (res.success && res.data.success === 1) {
+        // Save full session (token + user object including type)
         await SessionManager.setSession(res.data)
-        router.replace('/(main)/dashboard')
+
+        // All user types land on the same dashboard route.
+        // _layout.tsx reads getUserType() and shows the correct
+        // tabs (full set vs store-only) automatically.
+        if (res.data.user.type === "store_manager") {
+          router.replace('/(main)/store_management/store')
+        }
+        else {
+          router.replace('/(main)/dashboard')
+        }
       } else {
         AppUtils.showToast(res.data?.message || 'Login failed')
       }
-    } catch {
-      AppUtils.showToast('Something went wrong')
+    } catch (err: any) {
+      console.error('Login screen callAPI error:', err)
+      AppUtils.showToast(err?.message || 'Something went wrong')
     } finally {
       setIsLoading(false)
     }
@@ -157,25 +173,31 @@ export default function LoginScreen() {
     getFirebaseToken();
   }, []);
 
-  const getFirebaseToken = async () => {
+  const getFirebaseToken = async (): Promise<string | null> => {
     try {
-      // iOS requires explicit permission; Android grants it by default
       const authStatus = await messaging().requestPermission();
       const isGranted =
         authStatus === FirebaseMessagingTypes.AuthorizationStatus.AUTHORIZED ||
         authStatus === FirebaseMessagingTypes.AuthorizationStatus.PROVISIONAL;
 
       if (isGranted) {
+        if (Platform.OS === 'ios') {
+          await messaging().registerDeviceForRemoteMessages();
+        }
+        const savedToken = await SessionManager.getFCMToken();
+        if (savedToken) {
+          return savedToken;
+        }
         const fcmToken = await messaging().getToken();
-
         if (fcmToken) {
           await SessionManager.setFCMToken(fcmToken)
+          return fcmToken;
         }
       }
     } catch (fcmError) {
-      // Non-fatal — don't block login if push permission is denied
       console.warn('FCM token error:', fcmError)
     }
+    return await SessionManager.getFCMToken();
   }
 
   return (
@@ -195,7 +217,7 @@ export default function LoginScreen() {
       >
         <View style={styles.content}>
 
-          {/* ── Brand mark ───────────────────────────────────── */}
+          {/* ── Brand mark ── */}
           <View style={styles.brandRow}>
             <View style={styles.logoBox}>
               <Text style={styles.logoMark}>S</Text>
@@ -206,23 +228,23 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* ── Card ─────────────────────────────────────────── */}
+          {/* ── Card ── */}
           <View style={styles.card}>
 
-            {/* ── Heading ──────────────────────────────────────── */}
+            {/* ── Heading ── */}
             <View style={styles.headingBlock}>
               <Text style={styles.heading}>Welcome back</Text>
               <Text style={styles.subheading}>Sign in to your account to continue</Text>
             </View>
 
-            {/* ── Divider ──────────────────────────────────────── */}
+            {/* ── Divider ── */}
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerText}>CREDENTIALS</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* ── Form ─────────────────────────────────────────── */}
+            {/* ── Form ── */}
             <ThemedInput
               label="Email address"
               value={username}
@@ -251,7 +273,7 @@ export default function LoginScreen() {
               }
             />
 
-            {/* ── Forgot password ──────────────────────────────── */}
+            {/* ── Forgot password ── */}
             <Pressable
               style={styles.forgotRow}
               onPress={() => router.push('/(auth)/forgot-password')}
@@ -259,7 +281,7 @@ export default function LoginScreen() {
               <Text style={styles.forgotText}>Forgot password?</Text>
             </Pressable>
 
-            {/* ── Submit ───────────────────────────────────────── */}
+            {/* ── Submit ── */}
             <Pressable
               style={({ pressed }) => [
                 styles.submitBtn,
@@ -278,7 +300,7 @@ export default function LoginScreen() {
 
           </View>
 
-          {/* ── Footer ───────────────────────────────────────── */}
+          {/* ── Footer ── */}
           <Text style={styles.footer}>
             Secure · Encrypted · Private
           </Text>
@@ -296,7 +318,6 @@ const styles = StyleSheet.create({
     backgroundColor: T.bg,
   },
 
-  // Top stripe
   topStripe: {
     position: 'absolute',
     top: 0,
@@ -306,7 +327,6 @@ const styles = StyleSheet.create({
     backgroundColor: T.accent,
   },
 
-  // Background glows
   glowTopRight: {
     position: 'absolute',
     top: -60,
@@ -337,7 +357,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
 
-  // Brand
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -378,7 +397,6 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  // Card
   card: {
     backgroundColor: T.white,
     borderRadius: 20,
@@ -392,7 +410,6 @@ const styles = StyleSheet.create({
     borderColor: T.border,
   },
 
-  // Heading
   headingBlock: {
     marginBottom: 24,
   },
@@ -410,7 +427,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // Divider
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -428,7 +444,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
 
-  // Input
   inputWrap: {
     borderWidth: 1.5,
     borderRadius: 12,
@@ -444,7 +459,6 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
 
-  // Forgot
   forgotRow: {
     alignSelf: 'flex-end',
     marginTop: 10,
@@ -456,7 +470,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Submit button
   submitBtn: {
     backgroundColor: T.accent,
     borderRadius: 12,
@@ -484,7 +497,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // Footer
   footer: {
     marginTop: 28,
     textAlign: 'center',

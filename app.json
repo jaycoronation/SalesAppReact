@@ -18,7 +18,8 @@
           "remote-notification"
         ]
       },
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "appleTeamId": "TLSPFQ7J68"
     },
     "android": {
       "adaptiveIcon": {

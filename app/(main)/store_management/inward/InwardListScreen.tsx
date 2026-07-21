@@ -32,24 +32,67 @@ import {
 
 const PAGE_LIMIT = 50;
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmtRate(v: string) {
+  const n = parseFloat(v);
+  if (!v || isNaN(n)) return "—";
+  return `₹${n.toFixed(2)}`;
+}
+
 // ─── Shimmer Loading ──────────────────────────────────────────────────────────
 
 function ShimmerMaterialList() {
   return (
     <View style={s.listContent}>
-      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
-        <View key={i} style={s.row}>
-          <View style={s.rowLeft}>
-            <ShimmerBox width="65%" height={14} style={{ marginBottom: 6 }} />
-            <ShimmerBox width="25%" height={11} />
+      {[1, 2, 3, 4, 5, 6].map((i) => (
+        <View key={i} style={shimmer.wrapper}>
+          {/* Top row */}
+          <View style={shimmer.top}>
+            <ShimmerBox width="60%" height={14} />
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              <ShimmerBox width={30} height={30} borderRadius={8} />
+              <ShimmerBox width={30} height={30} borderRadius={8} />
+            </View>
           </View>
-          <ShimmerBox width={70} height={16} />
-          <ShimmerBox width={28} height={28} borderRadius={6} />
+          {/* Grid cells */}
+          <View style={shimmer.grid}>
+            {[0, 1, 2, 3].map((j) => (
+              <View key={j} style={shimmer.cell}>
+                <ShimmerBox width="50%" height={10} style={{ marginBottom: 6 }} />
+                <ShimmerBox width="70%" height={13} />
+              </View>
+            ))}
+          </View>
         </View>
       ))}
     </View>
   );
 }
+
+const shimmer = StyleSheet.create({
+  wrapper: {
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#E5E7EB",
+  },
+  top: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingTop: 13,
+    paddingBottom: 11,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#F3F4F6",
+  },
+  grid: { flexDirection: "row", flexWrap: "wrap" },
+  cell: {
+    width: "50%",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+});
 
 // ─── Material Row ─────────────────────────────────────────────────────────────
 
@@ -62,142 +105,138 @@ function MaterialRow({
   onEdit: (item: InwardListData) => void;
   onDelete: (item: InwardListData) => void;
 }) {
+  const fields = [
+    { label: "Department", value: item.dept_name ?? "—", isDept: true },
+    { label: "Qty", value: item.qty ?? "—" },
+    { label: "Rate (₹)", value: fmtRate(item.rate ?? "0"), isRate: true },
+    { label: "Value", value: item.value ?? "—" },
+    ...(item.remarks ? [{ label: "Remark", value: item.remarks }] : []),
+  ];
+
   return (
-    <View
-      style={{
-        alignItems: "flex-start",
-        paddingHorizontal: 16,
-        paddingVertical: 13,
-        borderBottomWidth: 0.5,
-        borderBottomColor: "#E5E7EB",
-        backgroundColor: "#FFFFFF",
-      }}
-    >
-      <View style={{ flexDirection: "row", marginBottom: 8 }}>
-        <View style={{ flex: 1, marginRight: 10 }}>
-          <Text style={s.materialName}>{item.material_name}</Text>
-        </View>
-
-        <TouchableOpacity
-          style={s.editBtn}
-          activeOpacity={0.7}
-          onPress={() => onEdit(item)}
-        >
-          <SquarePen size={20} color="#6B7280" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={s.deleteBtn}
-          activeOpacity={0.7}
-          onPress={() => onDelete(item)}
-        >
-          <Trash size={20} color="#6B7280" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={{ flexDirection: "row", marginBottom: 8, gap: 4 }}>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              color: Colors.placeholder,
-              fontWeight: "500",
-            }}
+    <View style={row.wrapper}>
+      {/* Top: name + action icons */}
+      <View style={row.top}>
+        <Text style={row.name} numberOfLines={2}>{item.material_name}</Text>
+        <View style={row.actions}>
+          <TouchableOpacity
+            style={row.iconBtn}
+            activeOpacity={0.7}
+            onPress={() => onEdit(item)}
           >
-            Department
-          </Text>
-          <View style={{ marginBottom: 4 }} />
-          <Text
-            style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
+            <SquarePen size={16} color="#6B7280" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[row.iconBtn, row.iconBtnDanger]}
+            activeOpacity={0.7}
+            onPress={() => onDelete(item)}
           >
-            {item.dept_name}
-          </Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              color: Colors.placeholder,
-              fontWeight: "500",
-            }}
-          >
-            Qty
-          </Text>
-          <View style={{ marginBottom: 4 }} />
-          <Text
-            style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
-          >
-            {item.qty}
-          </Text>
+            <Trash size={16} color="#EF4444" />
+          </TouchableOpacity>
         </View>
       </View>
 
-      <View style={{ flexDirection: "row", marginBottom: 8, gap: 4 }}>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              color: Colors.placeholder,
-              fontWeight: "500",
-            }}
+      {/* 2-column field grid */}
+      <View style={row.grid}>
+        {fields.map((f, i, arr) => (
+          <View
+            key={f.label}
+            style={[
+              row.cell,
+              i % 2 === 1 && row.cellNoBorderRight,
+              i >= arr.length - (arr.length % 2 === 0 ? 2 : 1) &&
+              row.cellNoBorderBottom,
+            ]}
           >
-            Rate
-          </Text>
-          <View style={{ marginBottom: 4 }} />
-          <Text
-            style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
-          >
-            {fmtRate(item.rate ?? "0")}
-          </Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              color: Colors.placeholder,
-              fontWeight: "500",
-            }}
-          >
-            Value
-          </Text>
-          <View style={{ marginBottom: 4 }} />
-          <Text
-            style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
-          >
-            {item.value}
-          </Text>
-        </View>
+            <Text style={row.cellLabel}>{f.label}</Text>
+            {f.isDept ? (
+              <View style={row.deptBadge}>
+                <Text style={row.deptBadgeText}>{f.value}</Text>
+              </View>
+            ) : (
+              <Text style={[row.cellValue, f.isRate && row.rateValue]}>
+                {f.value}
+              </Text>
+            )}
+          </View>
+        ))}
       </View>
-      {item.remarks && (
-        <View
-          style={{ justifyContent: "flex-start", alignItems: "flex-start" }}
-        >
-          <Text
-            style={{
-              fontSize: 12,
-              color: Colors.placeholder,
-              fontWeight: "500",
-            }}
-          >
-            Remark
-          </Text>
-          <View style={{ marginBottom: 4 }} />
-          <Text
-            style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
-          >
-            {item.remarks}
-          </Text>
-        </View>
-      )}
     </View>
   );
 }
 
-function fmtRate(v: string) {
-  const n = parseFloat(v);
-  if (!v || isNaN(n)) return "—";
-  return `₹${n.toFixed(2)}`;
-}
+const row = StyleSheet.create({
+  wrapper: {
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#E5E7EB",
+  },
+  top: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingHorizontal: 14,
+    paddingTop: 13,
+    paddingBottom: 11,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#F3F4F6",
+    gap: 10,
+  },
+  name: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+    lineHeight: 20,
+  },
+  actions: { flexDirection: "row", gap: 6, flexShrink: 0, marginTop: 1 },
+  iconBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconBtnDanger: {
+    borderColor: "#FEE2E2",
+    backgroundColor: "#FEF2F2",
+  },
+  grid: { flexDirection: "row", flexWrap: "wrap" },
+  cell: {
+    width: "50%",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#F3F4F6",
+    borderRightWidth: 0.5,
+    borderRightColor: "#F3F4F6",
+  },
+  cellNoBorderRight: { borderRightWidth: 0 },
+  cellNoBorderBottom: { borderBottomWidth: 0 },
+  cellLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#9CA3AF",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  cellValue: { fontSize: 13, fontWeight: "500", color: "#111827" },
+  rateValue: { color: "#059669", fontWeight: "600" },
+  deptBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: Colors.brandColorLight,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 1,
+    borderWidth: 0.5,
+    borderColor: Colors.brandColor,
+  },
+  deptBadgeText: { fontSize: 11, fontWeight: "600", color: Colors.brandColor },
+});
 
 // ─── Department Dropdown ──────────────────────────────────────────────────────
 
@@ -248,17 +287,13 @@ function DeptDropdown({
                 style={[
                   s.dropdownItemText,
                   selected?.dept_id === dept.dept_id &&
-                    s.dropdownItemTextActive,
+                  s.dropdownItemTextActive,
                 ]}
               >
                 {dept.dept_name}
               </Text>
               {selected?.dept_id === dept.dept_id && (
-                <Ionicons
-                  name="checkmark"
-                  size={14}
-                  color={Colors.brandColor}
-                />
+                <Ionicons name="checkmark" size={14} color={Colors.brandColor} />
               )}
             </TouchableOpacity>
           ))}
@@ -294,7 +329,6 @@ export default function InwardListScreen() {
   const fetchDepartments = useCallback(async () => {
     try {
       const token = await SessionManager.getToken();
-
       const res = await fetch(ApiEndPoints.DEPARTMENT_LIST, {
         method: "GET",
         headers: {
@@ -302,23 +336,12 @@ export default function InwardListScreen() {
           "Content-Type": "application/json",
         },
       });
-
-      if (!res.ok) {
-        throw new Error(`HTTP Error: ${res.status}`);
-      }
-
+      if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       const responseData: DepartmentListResponseModel = await res.json();
-
-      console.log("Department Response:", responseData);
-
       if (responseData.success === 1 && Array.isArray(responseData.data)) {
         setDepartments(responseData.data);
-
-        if (responseData.data.length > 0) {
-          setSelectedDept(responseData.data[0]);
-        }
+        if (responseData.data.length > 0) setSelectedDept(responseData.data[0]);
       } else {
-        console.warn("No department data found");
         setDepartments([]);
       }
     } catch (error) {
@@ -326,39 +349,30 @@ export default function InwardListScreen() {
     }
   }, []);
 
-  // ── Fetch materials ────────────────────────────────────────────────────────
+  // ── Fetch inward list ──────────────────────────────────────────────────────
 
   const fetchInward = useCallback(
     async (deptId: string, pageNum: number, reset = false) => {
       setTotalRecords(0);
       if (isFetchingRef.current) return;
       isFetchingRef.current = true;
-
       try {
         const token = await SessionManager.getToken();
-
+        const saved = await SessionManager.getDashFilter();
+        let month = 0, year = 0;
+        if (saved) { month = saved.month; year = saved.year; }
         const res = await fetch(
-          `${ApiEndPoints.INWARD_LIST}?page=${pageNum}&limit=${PAGE_LIMIT}&dept_id=${deptId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          },
+          `${ApiEndPoints.INWARD_LIST}?page=${pageNum}&limit=${PAGE_LIMIT}&dept_id=${deptId}&month=${month}&year=${year}`,
+          { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } },
         );
-
         const json: InwardListResponseModel = await res.json();
-        console.log("Inward Response:", json);
-
         if (json.success === 1 && Array.isArray(json.data)) {
           setTotalRecords(json.totalRecords ?? 0);
-          setInwardList((prev) =>
-            reset ? json.data : [...prev, ...json.data],
-          );
+          setInwardList((prev) => reset ? json.data : [...prev, ...json.data]);
           setHasMore(json.data.length === PAGE_LIMIT);
         }
       } catch (e) {
-        console.error("Failed to fetch materials", e);
+        console.error("Failed to fetch inward", e);
       } finally {
         isFetchingRef.current = false;
         setLoading(false);
@@ -369,28 +383,18 @@ export default function InwardListScreen() {
     [],
   );
 
-  // ── Delete Dialog ───────────────────────────────────────────────────────────────────
+  // ── Delete ─────────────────────────────────────────────────────────────────
+
   const confirmDelete = async () => {
     if (!selectedItem) return;
-
     try {
       const token = await SessionManager.getToken();
-
-      const body: Record<string, string> = {
-        inward_id: `${selectedItem.inward_id}`,
-      };
-
-      const response = await fetch(`${ApiEndPoints.DELETE_INWARD}`, {
+      const response = await fetch(ApiEndPoints.DELETE_INWARD, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ inward_id: `${selectedItem.inward_id}` }),
       });
-
       const json: CommonResponseModel = await response.json();
-
       if (json.success === 1) {
         setInwardList((prev) =>
           prev.filter((item) => item.inward_id !== selectedItem.inward_id),
@@ -406,9 +410,7 @@ export default function InwardListScreen() {
 
   // ── Init ───────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    fetchDepartments();
-  }, [fetchDepartments]);
+  useEffect(() => { fetchDepartments(); }, [fetchDepartments]);
 
   useEffect(() => {
     if (!selectedDept) return;
@@ -418,17 +420,10 @@ export default function InwardListScreen() {
     fetchInward(selectedDept.dept_id, 1, true);
   }, [selectedDept]);
 
-  // ── Reload list when screen comes back into focus (after add/edit) ──────────
-
   const isFirstFocus = useRef(true);
-
   useFocusEffect(
     useCallback(() => {
-      // Skip the very first focus (initial mount — already handled above)
-      if (isFirstFocus.current) {
-        isFirstFocus.current = false;
-        return;
-      }
+      if (isFirstFocus.current) { isFirstFocus.current = false; return; }
       if (!selectedDept) return;
       setRefreshing(true);
       setPage(1);
@@ -474,19 +469,9 @@ export default function InwardListScreen() {
 
   const filtered = search.trim()
     ? inwardList.filter((m) =>
-        m.material_name.toLowerCase().includes(search.toLowerCase()),
-      )
+      m.material_name.toLowerCase().includes(search.toLowerCase()),
+    )
     : inwardList;
-
-  // ── List header ────────────────────────────────────────────────────────────
-
-  const ListHeader = (
-    <View style={s.tableHeader}>
-      <Text style={[s.tableHeaderText, { flex: 1 }]}>MATERIAL NAME</Text>
-      <Text style={[s.tableHeaderText, s.tableHeaderRate]}>RATE</Text>
-      <Text style={[s.tableHeaderText, s.tableHeaderAction]}>ACTIONS</Text>
-    </View>
-  );
 
   // ── Footer loader ──────────────────────────────────────────────────────────
 
@@ -498,6 +483,8 @@ export default function InwardListScreen() {
     <View style={{ height: 40 }} />
   );
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <View style={s.container}>
       <Stack.Screen
@@ -507,6 +494,14 @@ export default function InwardListScreen() {
           headerBackTitle: "",
           animation: "none",
           headerTintColor: Colors.brandColor,
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{ marginLeft: 4, marginRight: 8 }}
+            >
+              <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+            </TouchableOpacity>
+          ),
         }}
       />
 
@@ -514,7 +509,6 @@ export default function InwardListScreen() {
       <View style={s.topBar}>
         <View style={s.titleRow}>
           <View style={s.topBarRight}>
-            {/* Search */}
             <View style={s.searchBox}>
               <Ionicons name="search-outline" size={16} color="#9CA3AF" />
               <TextInput
@@ -531,22 +525,13 @@ export default function InwardListScreen() {
                 </TouchableOpacity>
               )}
             </View>
-
-            {/* Add */}
             <TouchableOpacity
               style={s.addBtn}
               activeOpacity={0.8}
-              onPress={
-                () =>
-                  router.push({
-                    pathname:
-                      "/(main)/store_management/inward/AddEditInwardScreen",
-                  })
-                // router.push({
-                //   pathname:
-                //     "/(main)/store_management/material/AddEditMaterialScreen",
-                //   params: { dept_id: selectedDept?.dept_id },
-                // })
+              onPress={() =>
+                router.push({
+                  pathname: "/(main)/store_management/inward/AddEditInwardScreen",
+                })
               }
             >
               <Ionicons name="add" size={18} color="#FFFFFF" />
@@ -554,7 +539,6 @@ export default function InwardListScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        {/* Dept dropdown */}
         <View style={s.deptRow}>
           <Text style={s.deptLabel}>SELECT DEPARTMENT</Text>
           <DeptDropdown
@@ -580,7 +564,6 @@ export default function InwardListScreen() {
                 onDelete={onDeleteInward}
               />
             )}
-            // ListHeaderComponent={ListHeader}
             ListFooterComponent={ListFooter}
             contentContainerStyle={[
               s.listContent,
@@ -608,35 +591,53 @@ export default function InwardListScreen() {
           />
         )}
       </View>
+
+      {/* ── Delete Bottom Sheet ── */}
       <Modal
         visible={deleteSheetVisible}
         transparent
+        animationType="slide"
         onRequestClose={() => setDeleteSheetVisible(false)}
       >
         <Pressable
-          style={s.modalOverlay}
+          style={del.overlay}
           onPress={() => setDeleteSheetVisible(false)}
         >
-          <Pressable style={s.bottomSheet}>
-            <Text style={s.sheetTitle}>Delete Inward</Text>
+          <Pressable style={del.sheet}>
+            <View style={del.handle} />
 
-            <Text style={s.sheetMessage}>
-              Are you sure you want to delete this data?
-            </Text>
+            <View style={del.iconWrap}>
+              <Trash size={20} color="#EF4444" />
+            </View>
 
-            <View style={s.sheetButtonRow}>
+            <Text style={del.title}>Delete inward entry?</Text>
+            <Text style={del.sub}>This action cannot be undone.</Text>
+
+            {selectedItem && (
+              <View style={del.preview}>
+                <View style={del.previewDot} />
+                <View style={{ flex: 1 }}>
+                  <Text style={del.previewName} numberOfLines={1}>
+                    {selectedItem.material_name}
+                  </Text>
+                  <Text style={del.previewMeta}>
+                    {selectedItem.dept_name}
+                    {selectedItem.qty ? ` · ${selectedItem.qty}` : ""}
+                    {selectedItem.rate ? ` · ${fmtRate(selectedItem.rate)}` : ""}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View style={del.btnRow}>
               <TouchableOpacity
-                style={s.cancelBtn}
+                style={del.cancelBtn}
                 onPress={() => setDeleteSheetVisible(false)}
               >
-                <Text style={s.cancelText}>Cancel</Text>
+                <Text style={del.cancelText}>Cancel</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={s.deleteConfirmBtn}
-                onPress={confirmDelete}
-              >
-                <Text style={s.deleteText}>Delete</Text>
+              <TouchableOpacity style={del.deleteBtn} onPress={confirmDelete}>
+                <Text style={del.deleteText}>Delete</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -668,17 +669,6 @@ const s = StyleSheet.create({
     gap: 10,
     flexWrap: "wrap",
   },
-  screenTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#111827",
-    letterSpacing: -0.3,
-  },
-  countBadge: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#6B7280",
-  },
   topBarRight: {
     flexDirection: "row",
     alignItems: "center",
@@ -701,12 +691,7 @@ const s = StyleSheet.create({
     maxWidth: 240,
     gap: 6,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 13,
-    color: "#111827",
-    padding: 0,
-  },
+  searchInput: { flex: 1, fontSize: 13, color: "#111827", padding: 0 },
 
   // Add button
   addBtn: {
@@ -718,11 +703,7 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
   },
-  addBtnText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
+  addBtnText: { fontSize: 13, fontWeight: "700", color: "#FFFFFF" },
 
   // Dept row
   deptRow: { gap: 4 },
@@ -747,11 +728,7 @@ const s = StyleSheet.create({
     paddingVertical: 8,
     width: 200,
   },
-  dropdownValue: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#374151",
-  },
+  dropdownValue: { fontSize: 13, fontWeight: "500", color: "#374151" },
   dropdownMenu: {
     position: "absolute",
     top: 40,
@@ -781,160 +758,104 @@ const s = StyleSheet.create({
   dropdownItemText: { fontSize: 13, color: "#374151", fontWeight: "400" },
   dropdownItemTextActive: { color: Colors.brandColor, fontWeight: "600" },
 
-  // ── Table ─────────────────────────────────────────────────────────────────
+  // ── List container ─────────────────────────────────────────────────────────
   tableContainer: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F3F4F6",
     marginTop: 8,
-    marginHorizontal: 0,
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
   },
-  tableHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-    backgroundColor: "#F9FAFB",
-  },
-  tableHeaderText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#6B7280",
-    letterSpacing: 0.6,
-  },
-  tableHeaderRate: {
-    width: 90,
-    textAlign: "right",
-  },
-  tableHeaderAction: {
-    width: 72,
-    textAlign: "center",
-  },
-
-  listContent: { flexGrow: 1, paddingBottom: 8 },
-
-  // ── Row ───────────────────────────────────────────────────────────────────
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF",
-    gap: 8,
-  },
-  rowLeft: { flex: 1, gap: 4 },
-  materialName: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-    lineHeight: 18,
-  },
-  unitPill: {
-    alignSelf: "flex-start",
-    backgroundColor: "#EFF6FF",
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  unitText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#3B82F6",
-  },
-  rate: {
-    width: 90,
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#111827",
-    textAlign: "right",
-  },
-  editBtn: {
-    width: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    height: 18,
-  },
-
-  deleteBtn: {
-    width: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    height: 18,
-    marginLeft: 8,
-  },
+  listContent: { flexGrow: 1 },
 
   // ── Footer / empty ────────────────────────────────────────────────────────
   footerLoader: { paddingVertical: 16, alignItems: "center" },
-  empty: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  empty: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyIcon: { fontSize: 36 },
   emptyText: { fontSize: 14, color: "#9CA3AF", fontWeight: "600" },
   emptyHint: { fontSize: 12, color: "#D1D5DB" },
+});
 
-  modalOverlay: {
+// ─── Delete Sheet Styles ──────────────────────────────────────────────────────
+
+const del = StyleSheet.create({
+  overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "flex-end",
   },
-
-  bottomSheet: {
-    backgroundColor: "#FFF",
-    padding: 20,
+  sheet: {
+    backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 28,
   },
-
-  sheetTitle: {
-    fontSize: 18,
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 99,
+    backgroundColor: "#E5E7EB",
+    alignSelf: "center",
+    marginBottom: 18,
+  },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#FEF2F2",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 16,
     fontWeight: "700",
     color: "#111827",
+    marginBottom: 4,
   },
-
-  sheetMessage: {
-    fontSize: 14,
+  sub: {
+    fontSize: 13,
     color: "#6B7280",
-    marginTop: 10,
-    marginBottom: 24,
+    marginBottom: 16,
   },
-
-  sheetButtonRow: {
+  preview: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 10,
+    borderWidth: 0.5,
+    borderColor: "#E5E7EB",
+    padding: 12,
+    marginBottom: 20,
   },
-
+  previewDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 99,
+    backgroundColor: "#EF4444",
+    flexShrink: 0,
+  },
+  previewName: { fontSize: 13, fontWeight: "600", color: "#111827" },
+  previewMeta: { fontSize: 11, color: "#9CA3AF", marginTop: 2 },
+  btnRow: { flexDirection: "row", gap: 10 },
   cancelBtn: {
     flex: 1,
-    backgroundColor: "#000",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    marginRight: 10,
-    borderRadius: 8,
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    borderWidth: 0.5,
+    borderColor: "#E5E7EB",
   },
-
-  cancelText: {
-    color: "#FFF",
-    fontWeight: "600",
-    textAlign: "center",
-  },
-
-  deleteConfirmBtn: {
+  cancelText: { fontSize: 14, fontWeight: "600", color: "#374151" },
+  deleteBtn: {
     flex: 1,
-    backgroundColor: "#EF4444",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: "center",
+    backgroundColor: "#FEF2F2",
   },
-
-  deleteText: {
-    color: "#FFF",
-    fontWeight: "700",
-    textAlign: "center",
-  },
+  deleteText: { fontSize: 14, fontWeight: "600", color: "#EF4444" },
 });

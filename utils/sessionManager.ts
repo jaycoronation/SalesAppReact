@@ -12,16 +12,20 @@ export const SessionManager = {
       await AsyncStorage.setItem("country_code", data.user.country_code);
       await AsyncStorage.setItem("contact_no", data.user.contact_no);
       await AsyncStorage.setItem("profile_pic", data.user.profile_pic || "");
+      await AsyncStorage.setItem("user_type", data.user.type || "");
     } catch (e) {
       console.log("Error saving session", e);
     }
   },
+
 
   // ✅ Get individual values
   getToken: async () => await AsyncStorage.getItem("token"),
   getName: async () => await AsyncStorage.getItem("name"),
   getEmail: async () => await AsyncStorage.getItem("email"),
   getIsLoggedIn: async () => (await AsyncStorage.getItem("isLogged")) === "true",
+  getUserType: async (): Promise<string | null> => await AsyncStorage.getItem("user_type"),  // ← added
+
 
   // ✅ Get all data together (optional)
   getUserData: async () => {
@@ -57,6 +61,8 @@ export const SessionManager = {
       console.log("Error clearing session and database", e);
     }
   },
+
+
 
   // ✅ Dashboard filter persistence
   setDashFilter: async (month: number, year: number, fy: string) => {

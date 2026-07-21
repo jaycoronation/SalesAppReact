@@ -34,17 +34,50 @@ const PAGE_LIMIT = 50;
 
 // ─── Shimmer Loading ──────────────────────────────────────────────────────────
 
+const shimmer = StyleSheet.create({
+  wrapper: {
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#E5E7EB",
+  },
+  top: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingTop: 13,
+    paddingBottom: 11,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#F3F4F6",
+  },
+  grid: { flexDirection: "row", flexWrap: "wrap" },
+  cell: {
+    width: "50%",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+});
+
 function ShimmerMaterialList() {
   return (
     <View style={s.listContent}>
-      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
-        <View key={i} style={s.row}>
-          <View style={s.rowLeft}>
-            <ShimmerBox width="65%" height={14} style={{ marginBottom: 6 }} />
-            <ShimmerBox width="25%" height={11} />
+      {[1, 2, 3, 4, 5, 6].map((i) => (
+        <View key={i} style={shimmer.wrapper}>
+          <View style={shimmer.top}>
+            <ShimmerBox width="60%" height={14} />
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              <ShimmerBox width={30} height={30} borderRadius={8} />
+              <ShimmerBox width={30} height={30} borderRadius={8} />
+            </View>
           </View>
-          <ShimmerBox width={70} height={16} />
-          <ShimmerBox width={28} height={28} borderRadius={6} />
+          <View style={shimmer.grid}>
+            {[0, 1, 2, 3].map((j) => (
+              <View key={j} style={shimmer.cell}>
+                <ShimmerBox width="50%" height={10} style={{ marginBottom: 6 }} />
+                <ShimmerBox width="70%" height={13} />
+              </View>
+            ))}
+          </View>
         </View>
       ))}
     </View>
@@ -53,161 +86,296 @@ function ShimmerMaterialList() {
 
 // ─── Material Row ─────────────────────────────────────────────────────────────
 
-function MaterialRow({
-  item,
-  onEdit,
-  onDelete,
-}: {
+// function MaterialRow({
+//   item,
+//   onEdit,
+//   onDelete,
+// }: {
+//   item: OutwardListData;
+//   onEdit: (item: OutwardListData) => void;
+//   onDelete: (item: OutwardListData) => void;
+// }) {
+//   return (
+//     <View
+//       style={{
+//         alignItems: "flex-start",
+//         paddingHorizontal: 16,
+//         paddingVertical: 13,
+//         borderBottomWidth: 0.5,
+//         borderBottomColor: "#E5E7EB",
+//         backgroundColor: "#FFFFFF",
+//       }}
+//     >
+//       <View style={{ flexDirection: "row", marginBottom: 8 }}>
+//         <View style={{ flex: 1, marginRight: 10 }}>
+//           <Text style={s.materialName}>{item.material_name}</Text>
+//         </View>
+
+//         <TouchableOpacity
+//           style={s.editBtn}
+//           activeOpacity={0.7}
+//           onPress={() => onEdit(item)}
+//         >
+//           <SquarePen size={20} color="#6B7280" />
+//         </TouchableOpacity>
+
+//         <TouchableOpacity
+//           style={s.deleteBtn}
+//           activeOpacity={0.7}
+//           onPress={() => onDelete(item)}
+//         >
+//           <Trash size={20} color="#6B7280" />
+//         </TouchableOpacity>
+//       </View>
+
+//       <View style={{ flexDirection: "row", marginBottom: 8, gap: 4 }}>
+//         <View style={{ flex: 1 }}>
+//           <Text
+//             style={{
+//               fontSize: 12,
+//               color: Colors.placeholder,
+//               fontWeight: "500",
+//             }}
+//           >
+//             Department
+//           </Text>
+//           <View style={{ marginBottom: 4 }} />
+//           <Text
+//             style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
+//           >
+//             {item.dept_name ?? "-"}
+//           </Text>
+//         </View>
+//         <View style={{ flex: 1 }}>
+//           <Text
+//             style={{
+//               fontSize: 12,
+//               color: Colors.placeholder,
+//               fontWeight: "500",
+//             }}
+//           >
+//             Qty
+//           </Text>
+//           <View style={{ marginBottom: 4 }} />
+//           <Text
+//             style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
+//           >
+//             {item.qty ?? "-"}
+//           </Text>
+//         </View>
+//       </View>
+
+//       <View style={{ flexDirection: "row", marginBottom: 8, gap: 4 }}>
+//         <View style={{ flex: 1 }}>
+//           <Text
+//             style={{
+//               fontSize: 12,
+//               color: Colors.placeholder,
+//               fontWeight: "500",
+//             }}
+//           >
+//             Rate (₹)
+//           </Text>
+//           <View style={{ marginBottom: 4 }} />
+//           <Text
+//             style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
+//           >
+//             {fmtRate(item.rate ?? "-")}
+//           </Text>
+//         </View>
+//         <View style={{ flex: 1 }}>
+//           <Text
+//             style={{
+//               fontSize: 12,
+//               color: Colors.placeholder,
+//               fontWeight: "500",
+//             }}
+//           >
+//             Value
+//           </Text>
+//           <View style={{ marginBottom: 4 }} />
+//           <Text
+//             style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
+//           >
+//             {item.value ?? "-"}
+//           </Text>
+//         </View>
+//       </View>
+
+//       <View style={{ flexDirection: "row", marginBottom: 8, gap: 4 }}>
+//         <View style={{ flex: 1 }}>
+//           <Text
+//             style={{
+//               fontSize: 12,
+//               color: Colors.placeholder,
+//               fontWeight: "500",
+//             }}
+//           >
+//             Issued To
+//           </Text>
+//           <View style={{ marginBottom: 4 }} />
+//           <Text
+//             style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
+//           >
+//             {item.issued_to ?? "-"}
+//           </Text>
+//         </View>
+//         <View style={{ flex: 1 }}>
+//           <Text
+//             style={{
+//               fontSize: 12,
+//               color: Colors.placeholder,
+//               fontWeight: "500",
+//             }}
+//           >
+//             Remark
+//           </Text>
+//           <View style={{ marginBottom: 4 }} />
+//           <Text
+//             style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
+//           >
+//             {item.remarks}
+//           </Text>
+//         </View>
+//       </View>
+//     </View>
+//   );
+// }
+
+function MaterialRow({ item, onEdit, onDelete }: {
   item: OutwardListData;
   onEdit: (item: OutwardListData) => void;
   onDelete: (item: OutwardListData) => void;
 }) {
   return (
-    <View
-      style={{
-        alignItems: "flex-start",
-        paddingHorizontal: 16,
-        paddingVertical: 13,
-        borderBottomWidth: 0.5,
-        borderBottomColor: "#E5E7EB",
-        backgroundColor: "#FFFFFF",
-      }}
-    >
-      <View style={{ flexDirection: "row", marginBottom: 8 }}>
-        <View style={{ flex: 1, marginRight: 10 }}>
-          <Text style={s.materialName}>{item.material_name}</Text>
-        </View>
-
-        <TouchableOpacity
-          style={s.editBtn}
-          activeOpacity={0.7}
-          onPress={() => onEdit(item)}
-        >
-          <SquarePen size={20} color="#6B7280" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={s.deleteBtn}
-          activeOpacity={0.7}
-          onPress={() => onDelete(item)}
-        >
-          <Trash size={20} color="#6B7280" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={{ flexDirection: "row", marginBottom: 8, gap: 4 }}>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              color: Colors.placeholder,
-              fontWeight: "500",
-            }}
+    <View style={row.wrapper}>
+      {/* Top: name + action icons */}
+      <View style={row.top}>
+        <Text style={row.name} numberOfLines={2}>{item.material_name}</Text>
+        <View style={row.actions}>
+          <TouchableOpacity
+            style={row.iconBtn}
+            activeOpacity={0.7}
+            onPress={() => onEdit(item)}
           >
-            Department
-          </Text>
-          <View style={{ marginBottom: 4 }} />
-          <Text
-            style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
+            <SquarePen size={16} color="#6B7280" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[row.iconBtn, row.iconBtnDanger]}
+            activeOpacity={0.7}
+            onPress={() => onDelete(item)}
           >
-            {item.dept_name ?? "-"}
-          </Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              color: Colors.placeholder,
-              fontWeight: "500",
-            }}
-          >
-            Qty
-          </Text>
-          <View style={{ marginBottom: 4 }} />
-          <Text
-            style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
-          >
-            {item.qty ?? "-"}
-          </Text>
+            <Trash size={16} color="#EF4444" />
+          </TouchableOpacity>
         </View>
       </View>
 
-      <View style={{ flexDirection: "row", marginBottom: 8, gap: 4 }}>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              color: Colors.placeholder,
-              fontWeight: "500",
-            }}
+      {/* Grid: 2-column field cells */}
+      <View style={row.grid}>
+        {[
+          { label: 'Department', value: item.dept_name ?? '—', isDept: true },
+          { label: 'Qty', value: item.qty ?? '—' },
+          { label: 'Rate (₹)', value: fmtRate(item.rate ?? ''), isRate: true },
+          { label: 'Value', value: item.value ?? '—' },
+          { label: 'Issued To', value: item.issued_to ?? '—' },
+          { label: 'Remark', value: item.remarks ?? '—' },
+        ].map((f, i, arr) => (
+          <View
+            key={f.label}
+            style={[
+              row.cell,
+              i % 2 === 1 && row.cellNoBorderRight,
+              i >= arr.length - 2 && row.cellNoBorderBottom,
+            ]}
           >
-            Rate (₹)
-          </Text>
-          <View style={{ marginBottom: 4 }} />
-          <Text
-            style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
-          >
-            {fmtRate(item.rate ?? "-")}
-          </Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              color: Colors.placeholder,
-              fontWeight: "500",
-            }}
-          >
-            Value
-          </Text>
-          <View style={{ marginBottom: 4 }} />
-          <Text
-            style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
-          >
-            {item.value ?? "-"}
-          </Text>
-        </View>
-      </View>
-
-      <View style={{ flexDirection: "row", marginBottom: 8, gap: 4 }}>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              color: Colors.placeholder,
-              fontWeight: "500",
-            }}
-          >
-            Issued To
-          </Text>
-          <View style={{ marginBottom: 4 }} />
-          <Text
-            style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
-          >
-            {item.issued_to ?? "-"}
-          </Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              color: Colors.placeholder,
-              fontWeight: "500",
-            }}
-          >
-            Remark
-          </Text>
-          <View style={{ marginBottom: 4 }} />
-          <Text
-            style={{ fontSize: 12, color: Colors.black, fontWeight: "500" }}
-          >
-            {item.remarks}
-          </Text>
-        </View>
+            <Text style={row.cellLabel}>{f.label}</Text>
+            {f.isDept ? (
+              <View style={row.deptBadge}>
+                <Text style={row.deptBadgeText}>{f.value}</Text>
+              </View>
+            ) : (
+              <Text style={[row.cellValue, f.isRate && row.rateValue]}>
+                {f.value}
+              </Text>
+            )}
+          </View>
+        ))}
       </View>
     </View>
   );
 }
+
+const row = StyleSheet.create({
+  wrapper: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E7EB',
+  },
+  top: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 14,
+    paddingTop: 13,
+    paddingBottom: 11,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F3F4F6',
+    gap: 10,
+  },
+  name: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    lineHeight: 20,
+  },
+  actions: { flexDirection: 'row', gap: 6, flexShrink: 0, marginTop: 1 },
+  iconBtn: {
+    width: 30, height: 30,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBtnDanger: {
+    borderColor: '#FEE2E2',
+    backgroundColor: '#FEF2F2',
+  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  cell: {
+    width: '50%',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F3F4F6',
+    borderRightWidth: 0.5,
+    borderRightColor: '#F3F4F6',
+  },
+  cellNoBorderRight: { borderRightWidth: 0 },
+  cellNoBorderBottom: { borderBottomWidth: 0 },
+  cellLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  cellValue: { fontSize: 13, fontWeight: '500', color: '#111827' },
+  rateValue: { color: '#059669', fontWeight: '600' },
+  deptBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.brandColorLight,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 1,
+    borderWidth: 0.5,
+    borderColor: Colors.brandColor,
+  },
+  deptBadgeText: { fontSize: 11, fontWeight: '600', color: Colors.brandColor },
+});
 
 function fmtRate(v: string) {
   const n = parseFloat(v);
@@ -264,7 +432,7 @@ function DeptDropdown({
                 style={[
                   s.dropdownItemText,
                   selected?.dept_id === dept.dept_id &&
-                    s.dropdownItemTextActive,
+                  s.dropdownItemTextActive,
                 ]}
               >
                 {dept.dept_name}
@@ -355,8 +523,16 @@ export default function OutWardListScreen() {
       try {
         const token = await SessionManager.getToken();
 
+        const saved = await SessionManager.getDashFilter();
+        let month = 0;
+        let year = 0;
+        if (saved) {
+          month = saved.month;
+          year = saved.year;
+        }
+
         const res = await fetch(
-          `${ApiEndPoints.OUTWARD_LIST}?page=${pageNum}&limit=${PAGE_LIMIT}&dept_id=${deptId}`,
+          `${ApiEndPoints.OUTWARD_LIST}?page=${pageNum}&limit=${PAGE_LIMIT}&dept_id=${deptId}&month=${month}&year=${year}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -492,8 +668,8 @@ export default function OutWardListScreen() {
 
   const filtered = search.trim()
     ? inwardList.filter((m) =>
-        m.material_name.toLowerCase().includes(search.toLowerCase()),
-      )
+      m.material_name.toLowerCase().includes(search.toLowerCase()),
+    )
     : inwardList;
 
   // ── List header ────────────────────────────────────────────────────────────
@@ -525,6 +701,11 @@ export default function OutWardListScreen() {
           headerBackTitle: "",
           animation: "none",
           headerTintColor: Colors.brandColor,
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+              <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
+            </TouchableOpacity>
+          ),
         }}
       />
 
@@ -623,32 +804,45 @@ export default function OutWardListScreen() {
       <Modal
         visible={deleteSheetVisible}
         transparent
+        animationType="fade"
         onRequestClose={() => setDeleteSheetVisible(false)}
       >
-        <Pressable
-          style={s.modalOverlay}
-          onPress={() => setDeleteSheetVisible(false)}
-        >
-          <Pressable style={s.bottomSheet}>
-            <Text style={s.sheetTitle}>Delete Inward</Text>
+        <Pressable style={del.overlay} onPress={() => setDeleteSheetVisible(false)}>
+          <Pressable style={del.sheet}>
+            <View style={del.handle} />
 
-            <Text style={s.sheetMessage}>
-              Are you sure you want to delete this data?
-            </Text>
+            <View style={del.iconWrap}>
+              <Trash size={20} color="#EF4444" />
+            </View>
 
-            <View style={s.sheetButtonRow}>
+            <Text style={del.title}>Delete outward entry?</Text>
+            <Text style={del.sub}>This action cannot be undone.</Text>
+
+            {selectedItem && (
+              <View style={del.preview}>
+                <View style={del.previewDot} />
+                <View style={{ flex: 1 }}>
+                  <Text style={del.previewName} numberOfLines={1}>
+                    {selectedItem.material_name}
+                  </Text>
+                  <Text style={del.previewMeta}>
+                    {selectedItem.dept_name}
+                    {selectedItem.qty ? ` · ${selectedItem.qty}` : ''}
+                    {selectedItem.rate ? ` · ${fmtRate(selectedItem.rate)}` : ''}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View style={del.btnRow}>
               <TouchableOpacity
-                style={s.cancelBtn}
+                style={del.cancelBtn}
                 onPress={() => setDeleteSheetVisible(false)}
               >
-                <Text style={s.cancelText}>Cancel</Text>
+                <Text style={del.cancelText}>Cancel</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={s.deleteConfirmBtn}
-                onPress={confirmDelete}
-              >
-                <Text style={s.deleteText}>Delete</Text>
+              <TouchableOpacity style={del.deleteBtn} onPress={confirmDelete}>
+                <Text style={del.deleteText}>Delete</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -658,6 +852,107 @@ export default function OutWardListScreen() {
   );
 }
 
+
+
+const del = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: "white",
+    paddingTop: 14,
+    paddingBottom: 32,
+    paddingHorizontal: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  handle: {
+    width: 50,
+    height: 4,
+    backgroundColor: "#E5E7EB",
+    borderRadius: 4,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  iconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 52,
+    backgroundColor: "#FEF2F2",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    marginBottom: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  sub: {
+    fontSize: 13,
+    color: "#6B7280",
+    textAlign: "center",
+    marginBottom: 22,
+  },
+  preview: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#F9FAFB",
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  previewDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 10,
+    backgroundColor: "#F97316", // Orange theme
+  },
+  previewName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 2,
+  },
+  previewMeta: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+  btnRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  cancelText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#4B5563",
+    textAlign: "center",
+  },
+  deleteBtn: {
+    flex: 1,
+    backgroundColor: "#EF4444",
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  deleteText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "white",
+    textAlign: "center",
+  },
+});
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
@@ -796,7 +1091,7 @@ const s = StyleSheet.create({
   // ── Table ─────────────────────────────────────────────────────────────────
   tableContainer: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F3F4F6",  // was "#FFFFFF"
     marginTop: 8,
     marginHorizontal: 0,
     borderTopWidth: 1,
@@ -828,7 +1123,6 @@ const s = StyleSheet.create({
 
   listContent: {
     flexGrow: 1,
-    paddingBottom: 8,
   },
 
   // ── Row ───────────────────────────────────────────────────────────────────

@@ -267,11 +267,11 @@ export default function ProfileScreen() {
                   )
                 }
               />
-              <SubItem
+              {/* <SubItem
                 icon="archive-cog-outline"
                 label="Material Report"
                 onPress={() => {}}
-              />
+              /> */}
             </View>
           )}
 
