@@ -73,7 +73,11 @@ function ShimmerMaterialList() {
           <View style={shimmer.grid}>
             {[0, 1, 2, 3].map((j) => (
               <View key={j} style={shimmer.cell}>
-                <ShimmerBox width="50%" height={10} style={{ marginBottom: 6 }} />
+                <ShimmerBox
+                  width="50%"
+                  height={10}
+                  style={{ marginBottom: 6 }}
+                />
                 <ShimmerBox width="70%" height={13} />
               </View>
             ))}
@@ -242,7 +246,11 @@ function ShimmerMaterialList() {
 //   );
 // }
 
-function MaterialRow({ item, onEdit, onDelete }: {
+function MaterialRow({
+  item,
+  onEdit,
+  onDelete,
+}: {
   item: OutwardListData;
   onEdit: (item: OutwardListData) => void;
   onDelete: (item: OutwardListData) => void;
@@ -251,7 +259,9 @@ function MaterialRow({ item, onEdit, onDelete }: {
     <View style={row.wrapper}>
       {/* Top: name + action icons */}
       <View style={row.top}>
-        <Text style={row.name} numberOfLines={2}>{item.material_name}</Text>
+        <Text style={row.name} numberOfLines={2}>
+          {item.material_name}
+        </Text>
         <View style={row.actions}>
           <TouchableOpacity
             style={row.iconBtn}
@@ -273,12 +283,12 @@ function MaterialRow({ item, onEdit, onDelete }: {
       {/* Grid: 2-column field cells */}
       <View style={row.grid}>
         {[
-          { label: 'Department', value: item.dept_name ?? '—', isDept: true },
-          { label: 'Qty', value: item.qty ?? '—' },
-          { label: 'Rate (₹)', value: fmtRate(item.rate ?? ''), isRate: true },
-          { label: 'Value', value: item.value ?? '—' },
-          { label: 'Issued To', value: item.issued_to ?? '—' },
-          { label: 'Remark', value: item.remarks ?? '—' },
+          { label: "Department", value: item.dept_name ?? "—", isDept: true },
+          { label: "Qty", value: item.qty ?? "—" },
+          { label: "Rate (₹)", value: fmtRate(item.rate ?? ""), isRate: true },
+          { label: "Value", value: item.value ?? "—" },
+          { label: "Issued To", value: item.issued_to ?? "—" },
+          { label: "Remark", value: item.remarks ?? "—" },
         ].map((f, i, arr) => (
           <View
             key={f.label}
@@ -307,65 +317,66 @@ function MaterialRow({ item, onEdit, onDelete }: {
 
 const row = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 0.5,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   top: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     paddingHorizontal: 14,
     paddingTop: 13,
     paddingBottom: 11,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: "#F3F4F6",
     gap: 10,
   },
   name: {
     flex: 1,
     fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
     lineHeight: 20,
   },
-  actions: { flexDirection: 'row', gap: 6, flexShrink: 0, marginTop: 1 },
+  actions: { flexDirection: "row", gap: 6, flexShrink: 0, marginTop: 1 },
   iconBtn: {
-    width: 30, height: 30,
+    width: 30,
+    height: 30,
     borderRadius: 8,
     borderWidth: 0.5,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
+    alignItems: "center",
+    justifyContent: "center",
   },
   iconBtnDanger: {
-    borderColor: '#FEE2E2',
-    backgroundColor: '#FEF2F2',
+    borderColor: "#FEE2E2",
+    backgroundColor: "#FEF2F2",
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  grid: { flexDirection: "row", flexWrap: "wrap" },
   cell: {
-    width: '50%',
+    width: "50%",
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: "#F3F4F6",
     borderRightWidth: 0.5,
-    borderRightColor: '#F3F4F6',
+    borderRightColor: "#F3F4F6",
   },
   cellNoBorderRight: { borderRightWidth: 0 },
   cellNoBorderBottom: { borderBottomWidth: 0 },
   cellLabel: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    color: "#9CA3AF",
+    textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 4,
   },
-  cellValue: { fontSize: 13, fontWeight: '500', color: '#111827' },
-  rateValue: { color: '#059669', fontWeight: '600' },
+  cellValue: { fontSize: 13, fontWeight: "500", color: "#111827" },
+  rateValue: { color: "#059669", fontWeight: "600" },
   deptBadge: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     backgroundColor: Colors.brandColorLight,
     borderRadius: 6,
     paddingHorizontal: 8,
@@ -374,7 +385,7 @@ const row = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: Colors.brandColor,
   },
-  deptBadgeText: { fontSize: 11, fontWeight: '600', color: Colors.brandColor },
+  deptBadgeText: { fontSize: 11, fontWeight: "600", color: Colors.brandColor },
 });
 
 function fmtRate(v: string) {
@@ -432,7 +443,7 @@ function DeptDropdown({
                 style={[
                   s.dropdownItemText,
                   selected?.dept_id === dept.dept_id &&
-                  s.dropdownItemTextActive,
+                    s.dropdownItemTextActive,
                 ]}
               >
                 {dept.dept_name}
@@ -668,8 +679,8 @@ export default function OutWardListScreen() {
 
   const filtered = search.trim()
     ? inwardList.filter((m) =>
-      m.material_name.toLowerCase().includes(search.toLowerCase()),
-    )
+        m.material_name.toLowerCase().includes(search.toLowerCase()),
+      )
     : inwardList;
 
   // ── List header ────────────────────────────────────────────────────────────
@@ -702,7 +713,10 @@ export default function OutWardListScreen() {
           animation: "none",
           headerTintColor: Colors.brandColor,
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4, marginRight: 8 }}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{ marginLeft: 4, marginRight: 8 }}
+            >
               <Ionicons name="arrow-back" size={24} color={Colors.brandColor} />
             </TouchableOpacity>
           ),
@@ -807,7 +821,10 @@ export default function OutWardListScreen() {
         animationType="fade"
         onRequestClose={() => setDeleteSheetVisible(false)}
       >
-        <Pressable style={del.overlay} onPress={() => setDeleteSheetVisible(false)}>
+        <Pressable
+          style={del.overlay}
+          onPress={() => setDeleteSheetVisible(false)}
+        >
           <Pressable style={del.sheet}>
             <View style={del.handle} />
 
@@ -827,8 +844,10 @@ export default function OutWardListScreen() {
                   </Text>
                   <Text style={del.previewMeta}>
                     {selectedItem.dept_name}
-                    {selectedItem.qty ? ` · ${selectedItem.qty}` : ''}
-                    {selectedItem.rate ? ` · ${fmtRate(selectedItem.rate)}` : ''}
+                    {selectedItem.qty ? ` · ${selectedItem.qty}` : ""}
+                    {selectedItem.rate
+                      ? ` · ${fmtRate(selectedItem.rate)}`
+                      : ""}
                   </Text>
                 </View>
               </View>
@@ -851,8 +870,6 @@ export default function OutWardListScreen() {
     </View>
   );
 }
-
-
 
 const del = StyleSheet.create({
   overlay: {
@@ -1091,7 +1108,7 @@ const s = StyleSheet.create({
   // ── Table ─────────────────────────────────────────────────────────────────
   tableContainer: {
     flex: 1,
-    backgroundColor: "#F3F4F6",  // was "#FFFFFF"
+    backgroundColor: "#F3F4F6", // was "#FFFFFF"
     marginTop: 8,
     marginHorizontal: 0,
     borderTopWidth: 1,

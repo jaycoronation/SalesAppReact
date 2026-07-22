@@ -59,7 +59,11 @@ function ShimmerMaterialList() {
           <View style={shimmer.grid}>
             {[0, 1, 2, 3].map((j) => (
               <View key={j} style={shimmer.cell}>
-                <ShimmerBox width="50%" height={10} style={{ marginBottom: 6 }} />
+                <ShimmerBox
+                  width="50%"
+                  height={10}
+                  style={{ marginBottom: 6 }}
+                />
                 <ShimmerBox width="70%" height={13} />
               </View>
             ))}
@@ -117,7 +121,9 @@ function MaterialRow({
     <View style={row.wrapper}>
       {/* Top: name + action icons */}
       <View style={row.top}>
-        <Text style={row.name} numberOfLines={2}>{item.material_name}</Text>
+        <Text style={row.name} numberOfLines={2}>
+          {item.material_name}
+        </Text>
         <View style={row.actions}>
           <TouchableOpacity
             style={row.iconBtn}
@@ -145,7 +151,7 @@ function MaterialRow({
               row.cell,
               i % 2 === 1 && row.cellNoBorderRight,
               i >= arr.length - (arr.length % 2 === 0 ? 2 : 1) &&
-              row.cellNoBorderBottom,
+                row.cellNoBorderBottom,
             ]}
           >
             <Text style={row.cellLabel}>{f.label}</Text>
@@ -287,13 +293,17 @@ function DeptDropdown({
                 style={[
                   s.dropdownItemText,
                   selected?.dept_id === dept.dept_id &&
-                  s.dropdownItemTextActive,
+                    s.dropdownItemTextActive,
                 ]}
               >
                 {dept.dept_name}
               </Text>
               {selected?.dept_id === dept.dept_id && (
-                <Ionicons name="checkmark" size={14} color={Colors.brandColor} />
+                <Ionicons
+                  name="checkmark"
+                  size={14}
+                  color={Colors.brandColor}
+                />
               )}
             </TouchableOpacity>
           ))}
@@ -359,16 +369,27 @@ export default function InwardListScreen() {
       try {
         const token = await SessionManager.getToken();
         const saved = await SessionManager.getDashFilter();
-        let month = 0, year = 0;
-        if (saved) { month = saved.month; year = saved.year; }
+        let month = 0,
+          year = 0;
+        if (saved) {
+          month = saved.month;
+          year = saved.year;
+        }
         const res = await fetch(
           `${ApiEndPoints.INWARD_LIST}?page=${pageNum}&limit=${PAGE_LIMIT}&dept_id=${deptId}&month=${month}&year=${year}`,
-          { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
         );
         const json: InwardListResponseModel = await res.json();
         if (json.success === 1 && Array.isArray(json.data)) {
           setTotalRecords(json.totalRecords ?? 0);
-          setInwardList((prev) => reset ? json.data : [...prev, ...json.data]);
+          setInwardList((prev) =>
+            reset ? json.data : [...prev, ...json.data],
+          );
           setHasMore(json.data.length === PAGE_LIMIT);
         }
       } catch (e) {
@@ -391,7 +412,10 @@ export default function InwardListScreen() {
       const token = await SessionManager.getToken();
       const response = await fetch(ApiEndPoints.DELETE_INWARD, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ inward_id: `${selectedItem.inward_id}` }),
       });
       const json: CommonResponseModel = await response.json();
@@ -410,7 +434,9 @@ export default function InwardListScreen() {
 
   // ── Init ───────────────────────────────────────────────────────────────────
 
-  useEffect(() => { fetchDepartments(); }, [fetchDepartments]);
+  useEffect(() => {
+    fetchDepartments();
+  }, [fetchDepartments]);
 
   useEffect(() => {
     if (!selectedDept) return;
@@ -423,7 +449,10 @@ export default function InwardListScreen() {
   const isFirstFocus = useRef(true);
   useFocusEffect(
     useCallback(() => {
-      if (isFirstFocus.current) { isFirstFocus.current = false; return; }
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
       if (!selectedDept) return;
       setRefreshing(true);
       setPage(1);
@@ -469,8 +498,8 @@ export default function InwardListScreen() {
 
   const filtered = search.trim()
     ? inwardList.filter((m) =>
-      m.material_name.toLowerCase().includes(search.toLowerCase()),
-    )
+        m.material_name.toLowerCase().includes(search.toLowerCase()),
+      )
     : inwardList;
 
   // ── Footer loader ──────────────────────────────────────────────────────────
@@ -530,7 +559,8 @@ export default function InwardListScreen() {
               activeOpacity={0.8}
               onPress={() =>
                 router.push({
-                  pathname: "/(main)/store_management/inward/AddEditInwardScreen",
+                  pathname:
+                    "/(main)/store_management/inward/AddEditInwardScreen",
                 })
               }
             >
@@ -623,7 +653,9 @@ export default function InwardListScreen() {
                   <Text style={del.previewMeta}>
                     {selectedItem.dept_name}
                     {selectedItem.qty ? ` · ${selectedItem.qty}` : ""}
-                    {selectedItem.rate ? ` · ${fmtRate(selectedItem.rate)}` : ""}
+                    {selectedItem.rate
+                      ? ` · ${fmtRate(selectedItem.rate)}`
+                      : ""}
                   </Text>
                 </View>
               </View>
@@ -806,17 +838,20 @@ const del = StyleSheet.create({
     backgroundColor: "#FEF2F2",
     alignItems: "center",
     justifyContent: "center",
+    alignSelf: "center",
     marginBottom: 12,
   },
   title: {
     fontSize: 16,
     fontWeight: "700",
     color: "#111827",
+    textAlign: "center",
     marginBottom: 4,
   },
   sub: {
     fontSize: 13,
     color: "#6B7280",
+    textAlign: "center",
     marginBottom: 16,
   },
   preview: {
